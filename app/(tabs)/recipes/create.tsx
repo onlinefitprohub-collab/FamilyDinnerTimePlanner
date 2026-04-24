@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRecipeDataStore } from '../../../src/stores/useRecipeDataStore';
 import { useAuthStore } from '../../../src/stores/useAuthStore';
 import { CustomRecipe, RecipeCategory } from '../../../src/types';
@@ -12,7 +13,7 @@ import { CustomRecipe, RecipeCategory } from '../../../src/types';
 const CATEGORIES: RecipeCategory[] = ['pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill'];
 
 interface IngredientRow { name: string; quantity: string; unit: string; }
-interface StepRow { instruction: string; }
+interface StepRow { instruction: string; duration: string; tip: string; }
 
 export default function CreateRecipeScreen() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function CreateRecipeScreen() {
   const [batchNotes, setBatchNotes] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([{ name: '', quantity: '', unit: '' }]);
-  const [stepRows, setStepRows] = useState<StepRow[]>([{ instruction: '' }]);
+  const [stepRows, setStepRows] = useState<StepRow[]>([{ instruction: '', duration: '', tip: '' }]);
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
@@ -71,7 +72,11 @@ export default function CreateRecipeScreen() {
         unit: i.unit,
       })),
     );
-    setStepRows(recipe.steps.map((s) => ({ instruction: s.instruction })));
+    setStepRows(recipe.steps.map((s) => ({
+      instruction: s.instruction,
+      duration: s.duration ? String(s.duration) : '',
+      tip: s.tip ?? '',
+    })));
     if (recipe.nutritionPer4) {
       setCalories(String(recipe.nutritionPer4.calories));
       setProtein(String(recipe.nutritionPer4.protein));
@@ -86,10 +91,10 @@ export default function CreateRecipeScreen() {
   const updateIngredient = (i: number, field: keyof IngredientRow, val: string) =>
     setIngredientRows((r) => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
 
-  const addStep = () => setStepRows((r) => [...r, { instruction: '' }]);
+  const addStep = () => setStepRows((r) => [...r, { instruction: '', duration: '', tip: '' }]);
   const removeStep = (i: number) => setStepRows((r) => r.filter((_, idx) => idx !== i));
-  const updateStep = (i: number, val: string) =>
-    setStepRows((r) => r.map((row, idx) => idx === i ? { instruction: val } : row));
+  const updateStep = (i: number, field: keyof StepRow, val: string) =>
+    setStepRows((r) => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
 
   const handleSave = async () => {
     if (!name.trim()) { Alert.alert('Error', 'Recipe name is required.'); return; }
@@ -115,7 +120,12 @@ export default function CreateRecipeScreen() {
         quantityPer4: parseFloat(r.quantity) || 1,
         unit: r.unit || 'item',
       })),
-      steps: validSteps.map((r, i) => ({ stepNumber: i + 1, instruction: r.instruction })),
+      steps: validSteps.map((r, i) => ({
+        stepNumber: i + 1,
+        instruction: r.instruction,
+        ...(r.duration ? { duration: parseInt(r.duration) } : {}),
+        ...(r.tip.trim() ? { tip: r.tip.trim() } : {}),
+      })),
       nutritionPer4: calories ? {
         calories: parseInt(calories) || 0,
         protein: parseInt(protein) || 0,
@@ -154,6 +164,21 @@ export default function CreateRecipeScreen() {
       Alert.alert('Error', 'Failed to save recipe. Please try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePickImage = async (source: 'camera' | 'library') => {
+    const fn = source === 'camera' ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
+    const { status } = source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', `Please allow ${source} access in Settings.`);
+      return;
+    }
+    const result = await fn({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    if (!result.canceled && result.assets[0]) {
+      setImageUrl(result.assets[0].uri);
     }
   };
 
@@ -219,7 +244,17 @@ export default function CreateRecipeScreen() {
         )}
 
         <SectionHeader title="Photo" />
-        <Field label="Photo URL">
+        <View style={styles.photoRow}>
+          <Pressable style={styles.photoBtn} onPress={() => handlePickImage('camera')}>
+            <Ionicons name="camera-outline" size={20} color="#1A2B4A" />
+            <Text style={styles.photoBtnText}>Camera</Text>
+          </Pressable>
+          <Pressable style={styles.photoBtn} onPress={() => handlePickImage('library')}>
+            <Ionicons name="image-outline" size={20} color="#1A2B4A" />
+            <Text style={styles.photoBtnText}>Library</Text>
+          </Pressable>
+        </View>
+        <Field label="Or paste URL">
           <TextInput style={styles.input} value={imageUrl} onChangeText={setImageUrl} placeholder="https://…" autoCapitalize="none" keyboardType="url" />
         </Field>
 
@@ -241,12 +276,41 @@ export default function CreateRecipeScreen() {
 
         <SectionHeader title="Instructions *" />
         {stepRows.map((row, i) => (
-          <View key={i} style={styles.stepDynamicRow}>
-            <View style={styles.stepNumCircle}><Text style={styles.stepNumText}>{i + 1}</Text></View>
-            <TextInput style={[styles.input, styles.flex1]} value={row.instruction} onChangeText={(v) => updateStep(i, v)} placeholder={`Step ${i + 1}…`} multiline />
-            <Pressable onPress={() => removeStep(i)} style={styles.removeBtn}>
-              <Ionicons name="close-circle" size={22} color="#C0392B" />
-            </Pressable>
+          <View key={i} style={styles.stepCard}>
+            <View style={styles.stepCardHeader}>
+              <View style={styles.stepNumCircle}><Text style={styles.stepNumText}>{i + 1}</Text></View>
+              <Pressable onPress={() => removeStep(i)} style={styles.removeBtn}>
+                <Ionicons name="close-circle" size={22} color="#C0392B" />
+              </Pressable>
+            </View>
+            <TextInput
+              style={[styles.input, styles.multiline]}
+              value={row.instruction}
+              onChangeText={(v) => updateStep(i, 'instruction', v)}
+              placeholder={`Step ${i + 1} instructions…`}
+              multiline
+            />
+            <View style={styles.stepMetaRow}>
+              <View style={styles.flex1}>
+                <Text style={styles.fieldLabel}>Duration (mins)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={row.duration}
+                  onChangeText={(v) => updateStep(i, 'duration', v)}
+                  placeholder="e.g. 5"
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={styles.flex2}>
+                <Text style={styles.fieldLabel}>Chef Tip</Text>
+                <TextInput
+                  style={styles.input}
+                  value={row.tip}
+                  onChangeText={(v) => updateStep(i, 'tip', v)}
+                  placeholder="Optional tip…"
+                />
+              </View>
+            </View>
           </View>
         ))}
         <Pressable style={styles.addBtn} onPress={addStep}>
@@ -304,10 +368,15 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   switchLabel: { fontSize: 15, color: '#1A2B4A', fontWeight: '500' },
+  photoRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  photoBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#EEF1F7', borderRadius: 10, paddingVertical: 12 },
+  photoBtnText: { color: '#1A2B4A', fontWeight: '600', fontSize: 14 },
   dynamicRow: { flexDirection: 'row', gap: 6, marginBottom: 8, alignItems: 'center' },
-  stepDynamicRow: { flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'flex-start' },
-  stepNumCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8A020', justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  stepCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1.5, borderColor: '#E5E7EB', gap: 8 },
+  stepCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stepNumCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8A020', justifyContent: 'center', alignItems: 'center' },
   stepNumText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  stepMetaRow: { flexDirection: 'row', gap: 10 },
   removeBtn: { padding: 4 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 4 },
   addBtnText: { color: '#1A2B4A', fontWeight: '600', fontSize: 14 },

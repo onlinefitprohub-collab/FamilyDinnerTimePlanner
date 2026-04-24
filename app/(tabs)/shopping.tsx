@@ -9,9 +9,8 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
-  Platform,
+  Share,
 } from 'react-native';
-import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
@@ -193,7 +192,9 @@ export default function ShoppingScreen(): React.ReactElement {
   const handleShare = useCallback(async () => {
     const lines: string[] = ['Shopping List\n'];
     for (const section of sections) {
-      lines.push(`\n== ${section.title} ==`);
+      const sectionTotal = section.data.reduce((s, i) => s + i.cheapestPrice, 0);
+      const totalStr = sectionTotal > 0 ? ` — £${sectionTotal.toFixed(2)}` : '';
+      lines.push(`\n== ${section.title}${totalStr} ==`);
       for (const item of section.data) {
         const checked = checkedItems.has(item.ingredientId) ? '✓ ' : '  ';
         const price = item.cheapestPrice > 0 ? ` (£${item.cheapestPrice.toFixed(2)})` : '';
@@ -204,22 +205,7 @@ export default function ShoppingScreen(): React.ReactElement {
     const text = lines.join('\n');
 
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (!isAvailable) {
-        Alert.alert('Sharing not available', text);
-        return;
-      }
-      // Write to a temp file and share — for simplicity show an alert on web
-      if (Platform.OS === 'web') {
-        Alert.alert('Shopping List', text);
-      } else {
-        const FileSystem = await import('expo-file-system');
-        const fileUri = `${FileSystem.cacheDirectory}shopping-list.txt`;
-        await FileSystem.writeAsStringAsync(fileUri, text, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-        await Sharing.shareAsync(fileUri, { mimeType: 'text/plain' });
-      }
+      await Share.share({ message: text, title: 'Shopping List' });
     } catch (error) {
       console.error('[Shopping] share error:', error);
       Alert.alert('Shopping List', text);
@@ -333,11 +319,17 @@ export default function ShoppingScreen(): React.ReactElement {
         sections={sections}
         keyExtractor={(item) => item.ingredientId}
         renderItem={renderItem}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>{section.title}</Text>
-          </View>
-        )}
+        renderSectionHeader={({ section }) => {
+          const sectionTotal = section.data.reduce((sum: number, i: ShoppingListItem) => sum + i.cheapestPrice, 0);
+          return (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>{section.title}</Text>
+              {sectionTotal > 0 && (
+                <Text style={styles.sectionHeaderCost}>£{sectionTotal.toFixed(2)}</Text>
+              )}
+            </View>
+          );
+        }}
         stickySectionHeadersEnabled
         ListEmptyComponent={
           <Text style={styles.emptyText}>
@@ -484,6 +476,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     paddingHorizontal: 16,
     paddingVertical: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   sectionHeaderText: {
     fontSize: 12,
@@ -491,6 +486,11 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  sectionHeaderCost: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A2B4A',
   },
   listContent: {
     paddingBottom: 8,

@@ -95,6 +95,8 @@ export default function RegisterScreen(): React.ReactElement {
         setSuccessMessage(
           'Account created! Please check your email to confirm your address, then sign in.',
         );
+        // Auto-navigate to login after 2.5 s so the user can sign in
+        setTimeout(() => router.replace('/(auth)/login'), 2500);
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
