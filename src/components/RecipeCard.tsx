@@ -7,11 +7,12 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { AnyRecipe } from '../types';
+import { AnyRecipe, AllergenConflict } from '../types';
 import CostBadge from './CostBadge';
 import AllergenChip from './AllergenChip';
 import { calculateRecipeCost } from '../utils/pricing';
 import { getActiveDealsForRecipe, isRecipeInSeason } from '../utils/seasonal';
+import { ingredients as allIngredients } from '../data/ingredients';
 
 interface Props {
   recipe: AnyRecipe;
@@ -19,6 +20,7 @@ interface Props {
   onPress: () => void;
   onFavouriteToggle?: () => void;
   isFavourite?: boolean;
+  familyConflicts?: AllergenConflict[];
 }
 
 const DIFFICULTY_COLOURS: Record<string, { bg: string; text: string }> = {
@@ -40,10 +42,11 @@ export default function RecipeCard({
   onPress,
   onFavouriteToggle,
   isFavourite = false,
+  familyConflicts,
 }: Props): React.ReactElement {
   const currentMonth = new Date().getMonth() + 1;
-  const costData = calculateRecipeCost(recipe, familySize);
-  const costPerPerson = costData.totalCost / familySize;
+  const totalCost = calculateRecipeCost(recipe, allIngredients, familySize);
+  const costPerPerson = totalCost / familySize;
   const activeDeals = getActiveDealsForRecipe(recipe);
   const inSeason = isRecipeInSeason(recipe, currentMonth);
 
@@ -164,6 +167,28 @@ export default function RecipeCard({
                 <Text style={styles.moreAllergensText}>+{extraAllergenCount}</Text>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Family conflict indicators */}
+        {familyConflicts && familyConflicts.length > 0 && (
+          <View style={styles.conflictRow}>
+            {familyConflicts.map((conflict) => {
+              const isDanger = conflict.conflictType === 'allergen' && conflict.allergens.length > 0;
+              return (
+                <View
+                  key={conflict.memberId}
+                  style={[styles.conflictChip, isDanger ? styles.conflictChipDanger : styles.conflictChipWarning]}
+                >
+                  <Text style={styles.conflictChipText}>{conflict.memberName.charAt(0)}</Text>
+                </View>
+              );
+            })}
+            <Text style={styles.conflictLabel}>
+              {familyConflicts.length === 1
+                ? `${familyConflicts[0].memberName} may not like this`
+                : `${familyConflicts.length} family conflicts`}
+            </Text>
           </View>
         )}
       </View>
@@ -319,5 +344,34 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#6B7280',
     fontWeight: '600',
+  },
+  conflictRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  conflictChip: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictChipDanger: {
+    backgroundColor: '#C0392B',
+  },
+  conflictChipWarning: {
+    backgroundColor: '#E8A020',
+  },
+  conflictChipText: {
+    fontSize: 8,
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  conflictLabel: {
+    fontSize: 9,
+    color: '#9CA3AF',
+    flex: 1,
   },
 });

@@ -592,9 +592,6 @@ export const ingredients: Ingredient[] = [
       { supermarket: 'Aldi', pricePerUnit: 2.89, unitLabel: '750ml bottle' },
     ],
   },
-];
-
-  // ─── ADDITIONAL VEGETABLES ──────────────────────────────────────────────────
   {
     id: 'broccoli',
     name: 'Broccoli',

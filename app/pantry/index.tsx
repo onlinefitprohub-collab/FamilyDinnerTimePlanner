@@ -24,6 +24,7 @@ import { ingredients as allIngredients } from '../../src/data/ingredients';
 import { Ingredient, FreezerItem, IngredientCategory, AnyRecipe } from '../../src/types';
 import BarcodeScanModal from '../../src/components/BarcodeScanModal';
 import { BarcodeResult } from '../../src/services/openFoodFacts';
+import { useScanStore } from '../../src/stores/useScanStore';
 
 type CupboardTab = 'cupboard' | 'freezer';
 type MatchFilter = '100' | '1-2';
@@ -81,6 +82,9 @@ export default function PantryScreen(): React.ReactElement {
 
   const familySize = useAuthStore((s) => s.familySize);
   const user = useAuthStore((s) => s.user);
+
+  const scanHistory = useScanStore((s) => s.history);
+  const recentScans = useMemo(() => scanHistory.slice(0, 5), [scanHistory]);
 
   const { recipes: allRecipes } = useRecipeLibrary();
 
@@ -346,6 +350,35 @@ export default function PantryScreen(): React.ReactElement {
             stickySectionHeadersEnabled
             ListEmptyComponent={
               <Text style={styles.emptyText}>No ingredients found.</Text>
+            }
+            ListFooterComponent={
+              recentScans.length > 0 ? (
+                <View style={styles.recentScansSection}>
+                  <Text style={styles.recentScansTitle}>Recently Scanned</Text>
+                  {recentScans.map((scan) => (
+                    <View key={scan.id} style={styles.recentScanRow}>
+                      <Ionicons name="barcode-outline" size={16} color="#9CA3AF" />
+                      <View style={styles.recentScanInfo}>
+                        <Text style={styles.recentScanName} numberOfLines={1}>
+                          {scan.productName}
+                        </Text>
+                        <Text style={styles.recentScanMeta}>
+                          {scan.matchedIngredientId ? 'Matched' : 'No match'} ·{' '}
+                          {new Date(scan.scannedAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View style={[
+                        styles.recentScanBadge,
+                        scan.matchedIngredientId ? styles.recentScanBadgeMatched : styles.recentScanBadgeUnmatched,
+                      ]}>
+                        <Text style={styles.recentScanBadgeText}>
+                          {scan.action}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : null
             }
             contentContainerStyle={styles.listContent}
           />
@@ -1003,5 +1036,56 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  recentScansSection: {
+    marginTop: 24,
+    paddingHorizontal: 4,
+    paddingBottom: 16,
+  },
+  recentScansTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  recentScanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  recentScanInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  recentScanName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A2B4A',
+  },
+  recentScanMeta: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  recentScanBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  recentScanBadgeMatched: {
+    backgroundColor: '#E0F2E9',
+  },
+  recentScanBadgeUnmatched: {
+    backgroundColor: '#F3F4F6',
+  },
+  recentScanBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#1A2B4A',
+    textTransform: 'capitalize',
   },
 });

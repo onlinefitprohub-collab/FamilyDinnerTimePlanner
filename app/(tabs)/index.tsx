@@ -14,10 +14,11 @@ import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useFavouritesStore } from '../../src/stores/useFavouritesStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { getActiveDeals } from '../../src/data/deals';
-import { getSeasonalIngredients } from '../../src/utils/seasonal';
+import { getSeasonalIngredients } from '../../src/data/seasonal';
 import { calculateRecipeCost } from '../../src/utils/pricing';
 import SupermarketChip from '../../src/components/SupermarketChip';
-import { WeeklyMealPlan } from '../../src/types';
+import { ingredients as allIngredients } from '../../src/data/ingredients';
+import { WeeklyMealPlan, AnyRecipe } from '../../src/types';
 
 const DAYS: Array<{ key: keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'>; label: string }> = [
   { key: 'monday', label: 'Mon' },
@@ -69,8 +70,8 @@ export default function HomeScreen(): React.ReactElement {
       if (!recipeId) return sum;
       const recipe = recipes.find((r) => r.id === recipeId);
       if (!recipe) return sum;
-      const costData = calculateRecipeCost(recipe, familySize);
-      return sum + costData.totalCost;
+      const cost = calculateRecipeCost(recipe, allIngredients, familySize);
+      return sum + cost;
     }, 0);
   }, [currentPlan, recipes, familySize]);
 
@@ -89,6 +90,49 @@ export default function HomeScreen(): React.ReactElement {
     if (recipes.length === 0) return null;
     return recipes[dayOfYear % recipes.length];
   }, [recipes, dayOfYear]);
+
+  const quickestThisWeek = useMemo<{ recipe: AnyRecipe; day: string; totalTime: number } | null>(() => {
+    if (!currentPlan || recipes.length === 0) return null;
+    let best: { recipe: AnyRecipe; day: string; totalTime: number } | null = null;
+    for (const { key, label } of DAYS) {
+      const recipeId = currentPlan[key];
+      if (!recipeId) continue;
+      const recipe = recipes.find((r) => r.id === recipeId);
+      if (!recipe) continue;
+      const totalTime = recipe.prepTime + recipe.cookTime;
+      if (!best || totalTime < best.totalTime) {
+        best = { recipe, day: label, totalTime };
+      }
+    }
+    return best;
+  }, [currentPlan, recipes]);
+
+  const savingsTip = useMemo<{ savings: number; count: number } | null>(() => {
+    if (!currentPlan || recipes.length === 0) return null;
+    const weekIngredientIds = new Set<string>();
+    for (const { key } of DAYS) {
+      const recipeId = currentPlan[key];
+      if (!recipeId) continue;
+      const recipe = recipes.find((r) => r.id === recipeId);
+      if (!recipe) continue;
+      for (const ing of recipe.ingredients) weekIngredientIds.add(ing.ingredientId);
+    }
+    let totalSavings = 0;
+    let cheaperCount = 0;
+    for (const ingId of weekIngredientIds) {
+      const ing = allIngredients.find((i) => i.id === ingId);
+      if (!ing || ing.prices.length < 2) continue;
+      const prices = ing.prices.map((p) => p.pricePerUnit);
+      const maxPrice = Math.max(...prices);
+      const minPrice = Math.min(...prices);
+      if (maxPrice - minPrice > 0.05) {
+        totalSavings += maxPrice - minPrice;
+        cheaperCount++;
+      }
+    }
+    if (totalSavings < 0.5 || cheaperCount === 0) return null;
+    return { savings: totalSavings, count: cheaperCount };
+  }, [currentPlan, recipes]);
 
   const firstFourDeals = activeDeals.slice(0, 4);
 
@@ -170,6 +214,45 @@ export default function HomeScreen(): React.ReactElement {
               ? 'Over budget!'
               : `£${(weeklyBudget - weekTotalCost).toFixed(2)} remaining`}
           </Text>
+        </View>
+      )}
+
+      {/* 3b. Quickest This Week */}
+      {quickestThisWeek && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quickest This Week</Text>
+          <Pressable
+            onPress={() => router.push(`/recipe/${quickestThisWeek.recipe.id}`)}
+            style={({ pressed }) => [styles.quickestCard, pressed && styles.rowPressed]}
+          >
+            <View style={styles.quickestIconWrap}>
+              <Text style={styles.quickestIcon}>⚡</Text>
+            </View>
+            <View style={styles.quickestInfo}>
+              <Text style={styles.quickestName} numberOfLines={1}>
+                {quickestThisWeek.recipe.name}
+              </Text>
+              <Text style={styles.quickestMeta}>
+                {quickestThisWeek.day} · {quickestThisWeek.totalTime} mins total
+              </Text>
+            </View>
+            <Text style={styles.quickestArrow}>›</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* 3c. Savings Tip */}
+      {savingsTip && (
+        <View style={styles.section}>
+          <View style={styles.savingsTip}>
+            <Text style={styles.savingsIcon}>💰</Text>
+            <Text style={styles.savingsText}>
+              Switch{' '}
+              <Text style={styles.savingsBold}>{savingsTip.count} ingredient{savingsTip.count !== 1 ? 's' : ''}</Text>
+              {' '}to Lidl/Aldi this week and save up to{' '}
+              <Text style={styles.savingsBold}>£{savingsTip.savings.toFixed(2)}</Text>
+            </Text>
+          </View>
         </View>
       )}
 
@@ -566,5 +649,72 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 16,
+  },
+  quickestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickestIconWrap: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFF9F0',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickestIcon: {
+    fontSize: 20,
+  },
+  quickestInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  quickestName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A2B4A',
+  },
+  quickestMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  quickestArrow: {
+    fontSize: 24,
+    color: '#E8A020',
+    fontWeight: '300',
+    lineHeight: 28,
+  },
+  savingsTip: {
+    backgroundColor: '#F0FBF0',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#8FAF7E',
+  },
+  savingsIcon: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  savingsText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 18,
+  },
+  savingsBold: {
+    fontWeight: '700',
+    color: '#1A2B4A',
   },
 });

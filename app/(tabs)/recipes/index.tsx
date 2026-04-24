@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,17 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipeLibrary } from '../../../src/hooks/useRecipeLibrary';
 import { useAuthStore } from '../../../src/stores/useAuthStore';
 import { useFavouritesStore } from '../../../src/stores/useFavouritesStore';
+import { useFamilyStore } from '../../../src/stores/useFamilyStore';
 import RecipeCard from '../../../src/components/RecipeCard';
-import { AnyRecipe } from '../../../src/types';
+import { AnyRecipe, FamilyMember, AllergenConflict } from '../../../src/types';
 import { isRecipeInSeason, getActiveDealsForRecipe } from '../../../src/utils/seasonal';
+import { checkAllergenConflicts } from '../../../src/utils/allergens';
 
 type SortOption = 'name' | 'time' | 'cost' | 'difficulty' | 'rating';
 type DifficultyOption = 'easy' | 'medium' | 'hard';
@@ -25,7 +28,7 @@ type DifficultyOption = 'easy' | 'medium' | 'hard';
 interface QuickFilter {
   id: string;
   label: string;
-  test: (r: AnyRecipe, month: number) => boolean;
+  test: (r: AnyRecipe, month: number, members: FamilyMember[]) => boolean;
 }
 
 const QUICK_FILTERS: QuickFilter[] = [
@@ -69,6 +72,12 @@ const QUICK_FILTERS: QuickFilter[] = [
     label: 'Deals available',
     test: (r) => getActiveDealsForRecipe(r).length > 0,
   },
+  {
+    id: 'safe-for-all',
+    label: 'Safe for Everyone',
+    test: (r, _month, members) =>
+      members.length === 0 || checkAllergenConflicts(r, members).length === 0,
+  },
 ];
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -104,6 +113,8 @@ export default function RecipesScreen(): React.ReactElement {
   const ratings = useFavouritesStore((s) => s.ratings);
   const toggleFavourite = useFavouritesStore((s) => s.toggleFavourite);
 
+  const familyMembers = useFamilyStore((s) => s.members);
+
   const [searchText, setSearchText] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [sortOption, setSortOption] = useState<SortOption>('name');
@@ -111,6 +122,11 @@ export default function RecipesScreen(): React.ReactElement {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [dietaryFilters, setDietaryFilters] = useState<Set<string>>(new Set());
   const [difficultyFilters, setDifficultyFilters] = useState<Set<DifficultyOption>>(new Set());
+  const [fussyEaterMode, setFussyEaterMode] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@fussy_eater_mode').then((v) => setFussyEaterMode(v === 'true'));
+  }, []);
 
   const currentMonth = new Date().getMonth() + 1;
 
@@ -187,12 +203,20 @@ export default function RecipesScreen(): React.ReactElement {
       result = result.filter((r) => difficultyFilters.has(r.difficulty as DifficultyOption));
     }
 
+    // Fussy Eater Mode: hide recipes with any family member's disliked ingredient
+    if (fussyEaterMode && familyMembers.length > 0) {
+      result = result.filter((r) => {
+        const conflicts = checkAllergenConflicts(r, familyMembers);
+        return !conflicts.some((c) => c.dislikes.length > 0);
+      });
+    }
+
     // Quick filters (intersection)
     if (activeFilters.size > 0) {
       result = result.filter((r) =>
         Array.from(activeFilters).every((filterId) => {
           const qf = QUICK_FILTERS.find((f) => f.id === filterId);
-          return qf ? qf.test(r, currentMonth) : true;
+          return qf ? qf.test(r, currentMonth, familyMembers) : true;
         }),
       );
     }
@@ -219,7 +243,17 @@ export default function RecipesScreen(): React.ReactElement {
     });
 
     return result;
-  }, [recipes, searchText, categoryFilter, dietaryFilters, difficultyFilters, activeFilters, sortOption, ratings, currentMonth]);
+  }, [recipes, searchText, categoryFilter, dietaryFilters, difficultyFilters, activeFilters, sortOption, ratings, currentMonth, fussyEaterMode, familyMembers]);
+
+  const conflictsPerRecipe = useMemo<Record<string, AllergenConflict[]>>(() => {
+    if (familyMembers.length === 0) return {};
+    const map: Record<string, AllergenConflict[]> = {};
+    for (const r of filteredRecipes) {
+      const c = checkAllergenConflicts(r, familyMembers);
+      if (c.length > 0) map[r.id] = c;
+    }
+    return map;
+  }, [filteredRecipes, familyMembers]);
 
   const activeFilterCount =
     (categoryFilter ? 1 : 0) + dietaryFilters.size + difficultyFilters.size;
@@ -232,9 +266,10 @@ export default function RecipesScreen(): React.ReactElement {
         onPress={() => router.push(`/recipe/${item.id}`)}
         onFavouriteToggle={() => void toggleFavourite(item.id)}
         isFavourite={favourites[item.id] ?? false}
+        familyConflicts={conflictsPerRecipe[item.id]}
       />
     ),
-    [familySize, favourites, router, toggleFavourite],
+    [familySize, favourites, router, toggleFavourite, conflictsPerRecipe],
   );
 
   const keyExtractor = useCallback((item: AnyRecipe) => item.id, []);
