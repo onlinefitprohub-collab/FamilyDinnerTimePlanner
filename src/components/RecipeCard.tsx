@@ -56,6 +56,11 @@ export default function RecipeCard({
   const difficultyColour = DIFFICULTY_COLOURS[recipe.difficulty] ?? DIFFICULTY_COLOURS['easy'];
   const totalTime = recipe.prepTime + recipe.cookTime;
 
+  const sourceBadge = 'source' in recipe
+    ? (recipe as { source: string }).source === 'custom' ? 'My Recipe'
+    : 'Imported'
+    : null;
+
   const dietaryTags: { key: string; label: string }[] = [];
   if (recipe.dietaryInfo.vegetarian) dietaryTags.push({ key: 'vegetarian', label: 'VG' });
   if (recipe.dietaryInfo.vegan) dietaryTags.push({ key: 'vegan', label: 'V' });
@@ -88,6 +93,11 @@ export default function RecipeCard({
           {inSeason && (
             <View style={styles.seasonalBadge}>
               <Text style={styles.seasonalText}>Seasonal</Text>
+            </View>
+          )}
+          {sourceBadge && (
+            <View style={[styles.sourceBadge, sourceBadge === 'My Recipe' && styles.sourceBadgeMine]}>
+              <Text style={styles.sourceBadgeText}>{sourceBadge}</Text>
             </View>
           )}
         </View>
@@ -244,6 +254,20 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   seasonalText: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  sourceBadge: {
+    backgroundColor: '#4A90D9',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  sourceBadgeMine: {
+    backgroundColor: '#E8A020',
+  },
+  sourceBadgeText: {
     fontSize: 10,
     color: '#FFFFFF',
     fontWeight: '700',

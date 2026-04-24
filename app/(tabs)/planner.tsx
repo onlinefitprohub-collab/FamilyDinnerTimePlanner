@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,22 @@ import {
   TextInput,
   FlatList,
   Alert,
+  Share,
   StyleSheet,
   SafeAreaView,
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useTemplatesStore } from '../../src/stores/useTemplatesStore';
+import { useFamilyStore } from '../../src/stores/useFamilyStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { calculateRecipeCost } from '../../src/utils/pricing';
 import { calculateWeeklyNutrition } from '../../src/utils/nutrition';
+import { checkAllergenConflicts } from '../../src/utils/allergens';
 import FamilySizeSelector from '../../src/components/FamilySizeSelector';
 import CostBadge from '../../src/components/CostBadge';
 import { ingredients } from '../../src/data/ingredients';
@@ -105,6 +109,8 @@ export default function PlannerScreen(): React.ReactElement {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [templateModalMode, setTemplateModalMode] = useState<'save' | 'load'>('load');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importJson, setImportJson] = useState('');
 
   const plans = useMealPlanStore((s) => s.plans);
   const setMeal = useMealPlanStore((s) => s.setMeal);
@@ -112,6 +118,7 @@ export default function PlannerScreen(): React.ReactElement {
 
   const familySize = useAuthStore((s) => s.familySize);
   const user = useAuthStore((s) => s.user);
+  const familyMembers = useFamilyStore((s) => s.members);
 
   const weeklyBudget = useBudgetStore((s) => s.weeklyBudget);
 
@@ -148,6 +155,11 @@ export default function PlannerScreen(): React.ReactElement {
   const filteredRecipes = allRecipes.filter((r) =>
     r.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  // Batch cook: freezer-friendly recipes in this week's plan
+  const batchCookRecipes = useMemo<AnyRecipe[]>(() => {
+    return weekRecipes.filter((r) => r.freezerFriendly);
+  }, [weekRecipes]);
 
   const handleOpenAddMeal = useCallback((day: string) => {
     setSelectedDay(day);
@@ -291,6 +303,48 @@ export default function PlannerScreen(): React.ReactElement {
     );
   }, [currentWeekKey, plans, setMeal]);
 
+  const handleExportTemplate = useCallback(async () => {
+    const days = {
+      monday: currentPlan?.monday,
+      tuesday: currentPlan?.tuesday,
+      wednesday: currentPlan?.wednesday,
+      thursday: currentPlan?.thursday,
+      friday: currentPlan?.friday,
+      saturday: currentPlan?.saturday,
+      sunday: currentPlan?.sunday,
+    };
+    const exportData = { version: 1, name: `Week of ${formatWeekLabel(currentWeekKey)}`, days };
+    const json = JSON.stringify(exportData, null, 2);
+    try {
+      await Share.share({ message: json, title: 'Meal Template' });
+    } catch {
+      Alert.alert('Export Template', json);
+    }
+  }, [currentPlan, currentWeekKey]);
+
+  const handleImportTemplate = useCallback(() => {
+    const json = importJson.trim();
+    if (!json) return;
+    try {
+      const parsed = JSON.parse(json) as { version?: number; days?: Record<string, string | undefined> };
+      const days = parsed.days ?? {};
+      const dayKeys: MealDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      let imported = 0;
+      for (const day of dayKeys) {
+        const recipeId = days[day];
+        if (recipeId) {
+          setMeal(currentWeekKey, day, recipeId);
+          imported++;
+        }
+      }
+      setImportJson('');
+      setShowImportModal(false);
+      Alert.alert('Imported', `${imported} meal${imported !== 1 ? 's' : ''} applied to this week.`);
+    } catch {
+      Alert.alert('Invalid JSON', 'The pasted text is not a valid template. Please check and try again.');
+    }
+  }, [importJson, currentWeekKey, setMeal]);
+
   const getBudgetBarColor = (): string => {
     if (budgetPercent < 80) return '#8FAF7E';
     if (budgetPercent <= 100) return '#E8A020';
@@ -340,6 +394,10 @@ export default function PlannerScreen(): React.ReactElement {
               ? calculateRecipeCost(recipe, ingredients, familySize)
               : 0;
             const costPerPerson2 = familySize > 0 ? cost / familySize : 0;
+            const conflicts = recipe && familyMembers.length > 0
+              ? checkAllergenConflicts(recipe, familyMembers)
+              : [];
+            const hasDanger = conflicts.some((c) => c.conflictType === 'allergen' && c.allergens.length > 0);
 
             return (
               <View key={day} style={styles.dayCard}>
@@ -365,6 +423,18 @@ export default function PlannerScreen(): React.ReactElement {
                       {recipe.name}
                     </Text>
                     <CostBadge costPerPerson={costPerPerson2} />
+                    {conflicts.length > 0 && (
+                      <View style={styles.conflictWarning}>
+                        <Ionicons
+                          name="warning"
+                          size={11}
+                          color={hasDanger ? '#C0392B' : '#E8A020'}
+                        />
+                        <Text style={[styles.conflictWarnText, { color: hasDanger ? '#C0392B' : '#E8A020' }]}>
+                          {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    )}
                   </Pressable>
                 ) : (
                   <Pressable
@@ -426,19 +496,61 @@ export default function PlannerScreen(): React.ReactElement {
           </View>
         </View>
 
+        {/* Batch Cook Section */}
+        {batchCookRecipes.length > 0 && (
+          <View style={styles.batchCookCard}>
+            <View style={styles.batchCookHeader}>
+              <Text style={styles.batchCookTitle}>❄️ Cook Once, Eat Twice</Text>
+              <Text style={styles.batchCookSub}>
+                {batchCookRecipes.length} freezer-friendly meal{batchCookRecipes.length > 1 ? 's' : ''} this week
+              </Text>
+            </View>
+            {batchCookRecipes.map((r) => {
+              const singleCost = calculateRecipeCost(r, ingredients, familySize);
+              const doubleCost = singleCost * 2;
+              return (
+                <View key={r.id} style={styles.batchCookRow}>
+                  <View style={styles.batchCookInfo}>
+                    <Text style={styles.batchCookName} numberOfLines={1}>{r.name}</Text>
+                    {r.batchCookNotes && (
+                      <Text style={styles.batchCookNotes} numberOfLines={2}>{r.batchCookNotes}</Text>
+                    )}
+                  </View>
+                  <View style={styles.batchCookCosts}>
+                    <Text style={styles.batchCookCostLabel}>×2 batch</Text>
+                    <Text style={styles.batchCookCostValue}>£{doubleCost.toFixed(2)}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Action buttons */}
         <View style={styles.actionsRow}>
           <Pressable
             onPress={handleSaveTemplate}
             style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
           >
-            <Text style={styles.actionBtnText}>Save Template</Text>
+            <Text style={styles.actionBtnText}>Save</Text>
           </Pressable>
           <Pressable
             onPress={handleLoadTemplate}
             style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
           >
-            <Text style={styles.actionBtnText}>Load Template</Text>
+            <Text style={styles.actionBtnText}>Load</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void handleExportTemplate()}
+            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+          >
+            <Text style={styles.actionBtnText}>Export</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowImportModal(true)}
+            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+          >
+            <Text style={styles.actionBtnText}>Import</Text>
           </Pressable>
           <Pressable
             onPress={handleCopyLastWeek}
@@ -510,6 +622,48 @@ export default function PlannerScreen(): React.ReactElement {
             }
             contentContainerStyle={styles.recipeList}
           />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Import Template Modal */}
+      <Modal
+        visible={showImportModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowImportModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Import Template</Text>
+            <Pressable
+              onPress={() => setShowImportModal(false)}
+              style={({ pressed }) => [styles.closeBtn, pressed && styles.closeBtnPressed]}
+            >
+              <Text style={styles.closeBtnText}>✕</Text>
+            </Pressable>
+          </View>
+          <ScrollView style={styles.importScroll} contentContainerStyle={styles.importContent}>
+            <Text style={styles.importHint}>
+              Paste a previously exported template JSON below:
+            </Text>
+            <TextInput
+              style={styles.importInput}
+              multiline
+              placeholder={'{\n  "version": 1,\n  "days": { ... }\n}'}
+              placeholderTextColor="#9CA3AF"
+              value={importJson}
+              onChangeText={setImportJson}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+            />
+            <Pressable
+              onPress={handleImportTemplate}
+              style={({ pressed }) => [styles.importBtn, pressed && styles.importBtnPressed]}
+            >
+              <Text style={styles.importBtnText}>Apply Template</Text>
+            </Pressable>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
 
@@ -773,7 +927,110 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  conflictWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 4,
+  },
+  conflictWarnText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  batchCookCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#EEF7EE',
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#8FAF7E',
+  },
+  batchCookHeader: {
+    gap: 2,
+  },
+  batchCookTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1A2B4A',
+  },
+  batchCookSub: {
     fontSize: 12,
+    color: '#6B7280',
+  },
+  batchCookRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 10,
+    gap: 10,
+  },
+  batchCookInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  batchCookName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A2B4A',
+  },
+  batchCookNotes: {
+    fontSize: 11,
+    color: '#6B7280',
+    lineHeight: 15,
+  },
+  batchCookCosts: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  batchCookCostLabel: {
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
+  batchCookCostValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8FAF7E',
+  },
+  importScroll: {
+    flex: 1,
+  },
+  importContent: {
+    padding: 16,
+    gap: 14,
+  },
+  importHint: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  importInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 13,
+    color: '#1A2B4A',
+    minHeight: 180,
+    textAlignVertical: 'top',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  importBtn: {
+    backgroundColor: '#1A2B4A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  importBtnPressed: {
+    opacity: 0.8,
+  },
+  importBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '700',
   },
   // Modal

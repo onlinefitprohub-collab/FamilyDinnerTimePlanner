@@ -18,9 +18,9 @@ import { useAuthStore } from '../../../src/stores/useAuthStore';
 import { useFavouritesStore } from '../../../src/stores/useFavouritesStore';
 import { useFamilyStore } from '../../../src/stores/useFamilyStore';
 import RecipeCard from '../../../src/components/RecipeCard';
-import { AnyRecipe, FamilyMember, AllergenConflict } from '../../../src/types';
+import { AnyRecipe, FamilyMember, AllergenConflict, Allergen } from '../../../src/types';
 import { isRecipeInSeason, getActiveDealsForRecipe } from '../../../src/utils/seasonal';
-import { checkAllergenConflicts } from '../../../src/utils/allergens';
+import { checkAllergenConflicts, ALLERGEN_LABELS } from '../../../src/utils/allergens';
 
 type SortOption = 'name' | 'time' | 'cost' | 'difficulty' | 'rating';
 type DifficultyOption = 'easy' | 'medium' | 'hard';
@@ -122,6 +122,7 @@ export default function RecipesScreen(): React.ReactElement {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [dietaryFilters, setDietaryFilters] = useState<Set<string>>(new Set());
   const [difficultyFilters, setDifficultyFilters] = useState<Set<DifficultyOption>>(new Set());
+  const [excludedAllergens, setExcludedAllergens] = useState<Set<Allergen>>(new Set());
   const [fussyEaterMode, setFussyEaterMode] = useState(false);
 
   useEffect(() => {
@@ -150,6 +151,15 @@ export default function RecipesScreen(): React.ReactElement {
       } else {
         next.add(key);
       }
+      return next;
+    });
+  }, []);
+
+  const toggleAllergen = useCallback((allergen: Allergen) => {
+    setExcludedAllergens((prev) => {
+      const next = new Set(prev);
+      if (next.has(allergen)) next.delete(allergen);
+      else next.add(allergen);
       return next;
     });
   }, []);
@@ -203,6 +213,13 @@ export default function RecipesScreen(): React.ReactElement {
       result = result.filter((r) => difficultyFilters.has(r.difficulty as DifficultyOption));
     }
 
+    // Allergen exclusion filter
+    if (excludedAllergens.size > 0) {
+      result = result.filter((r) =>
+        !r.allergens.some((a) => excludedAllergens.has(a)),
+      );
+    }
+
     // Fussy Eater Mode: hide recipes with any family member's disliked ingredient
     if (fussyEaterMode && familyMembers.length > 0) {
       result = result.filter((r) => {
@@ -243,7 +260,7 @@ export default function RecipesScreen(): React.ReactElement {
     });
 
     return result;
-  }, [recipes, searchText, categoryFilter, dietaryFilters, difficultyFilters, activeFilters, sortOption, ratings, currentMonth, fussyEaterMode, familyMembers]);
+  }, [recipes, searchText, categoryFilter, dietaryFilters, difficultyFilters, activeFilters, sortOption, ratings, currentMonth, fussyEaterMode, familyMembers, excludedAllergens]);
 
   const conflictsPerRecipe = useMemo<Record<string, AllergenConflict[]>>(() => {
     if (familyMembers.length === 0) return {};
@@ -256,7 +273,7 @@ export default function RecipesScreen(): React.ReactElement {
   }, [filteredRecipes, familyMembers]);
 
   const activeFilterCount =
-    (categoryFilter ? 1 : 0) + dietaryFilters.size + difficultyFilters.size;
+    (categoryFilter ? 1 : 0) + dietaryFilters.size + difficultyFilters.size + excludedAllergens.size;
 
   const renderItem = useCallback(
     ({ item }: { item: AnyRecipe }) => (
@@ -471,6 +488,25 @@ export default function RecipesScreen(): React.ReactElement {
               })}
             </View>
 
+            {/* Exclude Allergens */}
+            <Text style={styles.modalSectionTitle}>Exclude Allergens</Text>
+            <View style={styles.optionGrid}>
+              {(Object.keys(ALLERGEN_LABELS) as Allergen[]).map((allergen) => {
+                const isExcluded = excludedAllergens.has(allergen);
+                return (
+                  <Pressable
+                    key={allergen}
+                    onPress={() => toggleAllergen(allergen)}
+                    style={[styles.optionChip, isExcluded && styles.allergenChipExcluded]}
+                  >
+                    <Text style={[styles.optionChipText, isExcluded && styles.allergenChipTextExcluded]}>
+                      {ALLERGEN_LABELS[allergen]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             {/* Sort */}
             <Text style={styles.modalSectionTitle}>Sort By</Text>
             <View style={styles.sortList}>
@@ -498,6 +534,7 @@ export default function RecipesScreen(): React.ReactElement {
                   setCategoryFilter(null);
                   setDietaryFilters(new Set());
                   setDifficultyFilters(new Set());
+                  setExcludedAllergens(new Set());
                   setActiveFilters(new Set());
                   setSortOption('name');
                 }}
@@ -776,5 +813,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  allergenChipExcluded: {
+    backgroundColor: '#C0392B',
+    borderColor: '#C0392B',
+  },
+  allergenChipTextExcluded: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
