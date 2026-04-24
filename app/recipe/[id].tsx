@@ -11,6 +11,7 @@ import { useAuthStore } from '../../src/stores/useAuthStore';
 import { usePantryStore } from '../../src/stores/usePantryStore';
 import { useFavouritesStore } from '../../src/stores/useFavouritesStore';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
+import { useRecipeDataStore } from '../../src/stores/useRecipeDataStore';
 import { useAllergenCheck } from '../../src/hooks/useAllergenCheck';
 import { getIngredientById } from '../../src/data/ingredients';
 import { getDealsForIngredient } from '../../src/data/deals';
@@ -20,7 +21,7 @@ import { calculateRecipeNutrition, getNutritionLabel } from '../../src/utils/nut
 import FamilySizeSelector from '../../src/components/FamilySizeSelector';
 import SupermarketChip from '../../src/components/SupermarketChip';
 import AllergenChip from '../../src/components/AllergenChip';
-import { Allergen, WeeklyMealPlan } from '../../src/types';
+import { Allergen, CustomRecipe, ImportedRecipe, WeeklyMealPlan } from '../../src/types';
 
 const DAYS: (keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'>)[] = [
   'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
@@ -35,9 +36,11 @@ export default function RecipeDetailScreen() {
   const { items: pantryItems } = usePantryStore();
   const { favourites, ratings, toggleFavourite, setRating } = useFavouritesStore();
   const { getCurrentWeekKey, setMeal } = useMealPlanStore();
+  const { deleteCustomRecipe, deleteImportedRecipe, addCustomRecipe } = useRecipeDataStore();
   const { conflicts } = useAllergenCheck(id ?? '');
 
   const [showDayPicker, setShowDayPicker] = useState(false);
+  const [dayPickerMode, setDayPickerMode] = useState<'plan' | 'batchcook'>('plan');
 
   const recipe = getRecipeById(id ?? '');
 
@@ -51,6 +54,63 @@ export default function RecipeDetailScreen() {
       </View>
     );
   }
+
+  const recipeSource = 'source' in recipe ? (recipe as { source: string }).source : null;
+  const isCustom = recipeSource === 'custom';
+  const isImported = recipeSource !== null && recipeSource !== 'custom';
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Recipe',
+      `Remove "${recipe.name}" from your library? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (isCustom) void deleteCustomRecipe(recipe.id);
+            else void deleteImportedRecipe(recipe.id);
+            router.back();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDuplicate = () => {
+    const now = new Date().toISOString();
+    const copy: CustomRecipe = {
+      ...(recipe as CustomRecipe),
+      id: `custom-${Date.now()}`,
+      name: `Copy of ${recipe.name}`,
+      source: 'custom',
+      createdAt: now,
+      updatedAt: now,
+      userId: (recipe as CustomRecipe).userId ?? '',
+    };
+    void addCustomRecipe(copy);
+    Alert.alert('Duplicated', `"${copy.name}" has been added to My Recipes.`);
+  };
+
+  const handleOptions = () => {
+    const buttons: Parameters<typeof Alert.alert>[2] = [];
+    if (isCustom) {
+      buttons.push({
+        text: 'Edit Recipe',
+        onPress: () => router.push(`/(tabs)/recipes/create?editId=${recipe.id}`),
+      });
+    }
+    buttons.push({ text: 'Duplicate', onPress: handleDuplicate });
+    buttons.push({ text: 'Delete', style: 'destructive', onPress: handleDelete });
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+    Alert.alert(recipe.name, undefined, buttons);
+  };
+
+  const openAddToPlan = (mode: 'plan' | 'batchcook') => {
+    setDayPickerMode(mode);
+    setShowDayPicker(true);
+  };
 
   const isFav = favourites[recipe.id] ?? false;
   const myRating = ratings[recipe.id] ?? 0;
@@ -77,6 +137,11 @@ export default function RecipeDetailScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={22} color="#fff" />
           </Pressable>
+          {(isCustom || isImported) && (
+            <Pressable onPress={handleOptions} style={styles.optionsButton}>
+              <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.content}>
@@ -200,11 +265,20 @@ export default function RecipeDetailScreen() {
             </>
           )}
 
-          {/* Freezer */}
-          {recipe.freezerFriendly && recipe.batchCookNotes && (
+          {/* Freezer & Batch Cook */}
+          {recipe.freezerFriendly && (
             <>
               <Text style={styles.sectionHeader}>❄️ Freezer & Batch Cook</Text>
-              <Text style={styles.batchNotes}>{recipe.batchCookNotes}</Text>
+              {recipe.batchCookNotes && (
+                <Text style={styles.batchNotes}>{recipe.batchCookNotes}</Text>
+              )}
+              <Pressable
+                style={({ pressed }) => [styles.batchCookBtn, pressed && styles.batchCookBtnPressed]}
+                onPress={() => openAddToPlan('batchcook')}
+              >
+                <Ionicons name="snow-outline" size={18} color="#1A2B4A" />
+                <Text style={styles.batchCookBtnText}>Add to Batch Cook Plan</Text>
+              </Pressable>
             </>
           )}
 
@@ -237,7 +311,7 @@ export default function RecipeDetailScreen() {
 
       {/* Sticky bottom bar */}
       <View style={styles.stickyBar}>
-        <Pressable style={styles.stickyBtn} onPress={() => setShowDayPicker(true)}>
+        <Pressable style={styles.stickyBtn} onPress={() => openAddToPlan('plan')}>
           <Ionicons name="calendar-outline" size={20} color="#1A2B4A" />
           <Text style={styles.stickyBtnText}>Add to Plan</Text>
         </Pressable>
@@ -262,7 +336,9 @@ export default function RecipeDetailScreen() {
       <Modal visible={showDayPicker} transparent animationType="slide">
         <Pressable style={styles.modalOverlay} onPress={() => setShowDayPicker(false)}>
           <View style={styles.dayPickerSheet}>
-            <Text style={styles.dayPickerTitle}>Add to which day?</Text>
+            <Text style={styles.dayPickerTitle}>
+              {dayPickerMode === 'batchcook' ? '❄️ Batch Cook — which day?' : 'Add to which day?'}
+            </Text>
             {DAYS.map((day, i) => (
               <Pressable
                 key={day}
@@ -270,7 +346,12 @@ export default function RecipeDetailScreen() {
                 onPress={() => {
                   setMeal(getCurrentWeekKey(), day, recipe.id);
                   setShowDayPicker(false);
-                  Alert.alert('Added!', `${recipe.name} added to ${DAY_LABELS[i]}.`);
+                  Alert.alert(
+                    dayPickerMode === 'batchcook' ? 'Added to Batch Cook Plan' : 'Added!',
+                    dayPickerMode === 'batchcook'
+                      ? `${recipe.name} added for ${DAY_LABELS[i]}. Open the Planner to see your double-batch cost estimate.`
+                      : `${recipe.name} added to ${DAY_LABELS[i]}.`,
+                  );
                 }}
               >
                 <Text style={styles.dayRowText}>{DAY_LABELS[i]}</Text>
@@ -295,6 +376,7 @@ const styles = StyleSheet.create({
   heroContainer: { position: 'relative' },
   heroImage: { width: '100%', height: 280, backgroundColor: '#E5E7EB' },
   backButton: { position: 'absolute', top: 48, left: 16, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 22, padding: 8 },
+  optionsButton: { position: 'absolute', top: 48, right: 16, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 22, padding: 8 },
   content: { padding: 16 },
   title: { fontSize: 26, fontWeight: '800', color: '#1A2B4A', marginBottom: 6 },
   description: { fontSize: 15, color: '#555', marginBottom: 12, lineHeight: 22 },
@@ -333,7 +415,10 @@ const styles = StyleSheet.create({
   macroBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
   macroSegment: { height: 8 },
   nutritionNote: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
-  batchNotes: { fontSize: 14, color: '#374151', lineHeight: 20, backgroundColor: '#EFF6FF', padding: 12, borderRadius: 8 },
+  batchNotes: { fontSize: 14, color: '#374151', lineHeight: 20, backgroundColor: '#EFF6FF', padding: 12, borderRadius: 8, marginBottom: 10 },
+  batchCookBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: '#BFDBFE' },
+  batchCookBtnPressed: { opacity: 0.75 },
+  batchCookBtnText: { fontSize: 14, fontWeight: '700', color: '#1A2B4A' },
   stepRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   stepNumber: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#E8A020', justifyContent: 'center', alignItems: 'center', marginTop: 2 },
   stepNumberText: { color: '#fff', fontWeight: '800', fontSize: 14 },

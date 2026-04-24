@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView,
   Switch, Alert, StyleSheet,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipeDataStore } from '../../../src/stores/useRecipeDataStore';
 import { useAuthStore } from '../../../src/stores/useAuthStore';
@@ -16,8 +16,11 @@ interface StepRow { instruction: string; }
 
 export default function CreateRecipeScreen() {
   const router = useRouter();
-  const { addCustomRecipe } = useRecipeDataStore();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const { addCustomRecipe, updateCustomRecipe, customRecipes } = useRecipeDataStore();
   const { user } = useAuthStore();
+
+  const isEditing = Boolean(editId);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -42,6 +45,42 @@ export default function CreateRecipeScreen() {
   const [fat, setFat] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    if (!editId) return;
+    const recipe = customRecipes.find((r) => r.id === editId);
+    if (!recipe) return;
+    setName(recipe.name);
+    setDescription(recipe.description);
+    setCategory(recipe.category as RecipeCategory);
+    setDifficulty(recipe.difficulty as 'easy' | 'medium' | 'hard');
+    setPrepTime(String(recipe.prepTime));
+    setCookTime(String(recipe.cookTime));
+    setVegetarian(recipe.dietaryInfo.vegetarian);
+    setVegan(recipe.dietaryInfo.vegan);
+    setGlutenFree(recipe.dietaryInfo.glutenFree);
+    setDairyFree(recipe.dietaryInfo.dairyFree);
+    setFreezerFriendly(recipe.freezerFriendly);
+    setOnePot(recipe.onePot);
+    setKidFriendly(recipe.kidFriendly);
+    setBatchNotes(recipe.batchCookNotes ?? '');
+    setImageUrl(recipe.image ?? '');
+    setIngredientRows(
+      recipe.ingredients.map((i) => ({
+        name: i.ingredientId.replace(/-/g, ' '),
+        quantity: String(i.quantityPer4),
+        unit: i.unit,
+      })),
+    );
+    setStepRows(recipe.steps.map((s) => ({ instruction: s.instruction })));
+    if (recipe.nutritionPer4) {
+      setCalories(String(recipe.nutritionPer4.calories));
+      setProtein(String(recipe.nutritionPer4.protein));
+      setCarbs(String(recipe.nutritionPer4.carbs));
+      setFat(String(recipe.nutritionPer4.fat));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId]);
+
   const addIngredient = () => setIngredientRows((r) => [...r, { name: '', quantity: '', unit: '' }]);
   const removeIngredient = (i: number) => setIngredientRows((r) => r.filter((_, idx) => idx !== i));
   const updateIngredient = (i: number, field: keyof IngredientRow, val: string) =>
@@ -61,8 +100,7 @@ export default function CreateRecipeScreen() {
 
     setIsSaving(true);
     const now = new Date().toISOString();
-    const recipe: CustomRecipe = {
-      id: `custom-${Date.now()}`,
+    const recipeFields = {
       name: name.trim(),
       description: description.trim(),
       category,
@@ -90,17 +128,28 @@ export default function CreateRecipeScreen() {
       batchCookNotes: freezerFriendly ? batchNotes : undefined,
       onePot,
       kidFriendly,
-      source: 'custom',
-      createdAt: now,
-      updatedAt: now,
-      userId: user?.id ?? '',
     };
 
     try {
-      await addCustomRecipe(recipe);
-      Alert.alert('Recipe saved!', `${recipe.name} has been added to your library.`, [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      if (isEditing && editId) {
+        await updateCustomRecipe(editId, { ...recipeFields, updatedAt: now });
+        Alert.alert('Recipe updated!', `"${recipeFields.name}" has been saved.`, [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } else {
+        const recipe: CustomRecipe = {
+          ...recipeFields,
+          id: `custom-${Date.now()}`,
+          source: 'custom',
+          createdAt: now,
+          updatedAt: now,
+          userId: user?.id ?? '',
+        };
+        await addCustomRecipe(recipe);
+        Alert.alert('Recipe saved!', `"${recipe.name}" has been added to your library.`, [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      }
     } catch {
       Alert.alert('Error', 'Failed to save recipe. Please try again.');
     } finally {
@@ -110,7 +159,7 @@ export default function CreateRecipeScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Create Recipe' }} />
+      <Stack.Screen options={{ title: isEditing ? 'Edit Recipe' : 'Create Recipe' }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <SectionHeader title="Basic Info" />
         <Field label="Recipe Name *">
@@ -215,7 +264,7 @@ export default function CreateRecipeScreen() {
         </View>
 
         <Pressable style={styles.saveBtn} onPress={handleSave} disabled={isSaving}>
-          <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : 'Save Recipe'}</Text>
+          <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Recipe'}</Text>
         </Pressable>
       </ScrollView>
     </>
