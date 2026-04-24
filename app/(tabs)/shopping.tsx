@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import { Ionicons } from '@expo/vector-icons';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { usePantryStore } from '../../src/stores/usePantryStore';
@@ -20,6 +21,8 @@ import { buildShoppingList } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
 import SupermarketChip from '../../src/components/SupermarketChip';
 import AllergenChip from '../../src/components/AllergenChip';
+import BarcodeScanModal from '../../src/components/BarcodeScanModal';
+import { BarcodeResult } from '../../src/services/openFoodFacts';
 import {
   ShoppingListItem,
   IngredientCategory,
@@ -53,6 +56,7 @@ export default function ShoppingScreen(): React.ReactElement {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [manualItem, setManualItem] = useState('');
   const [manualItems, setManualItems] = useState<ShoppingListItem[]>([]);
+  const [showScanModal, setShowScanModal] = useState(false);
 
   const plans = useMealPlanStore((s) => s.plans);
   const currentWeekKey = useMealPlanStore((s) => s.currentWeekKey);
@@ -156,6 +160,28 @@ export default function ShoppingScreen(): React.ReactElement {
     setManualItems((prev) => [...prev, newItem]);
     setManualItem('');
   }, [manualItem]);
+
+  const handleScanResult = useCallback((result: BarcodeResult) => {
+    const matched = result.matchedIngredientId
+      ? allIngredients.find((i) => i.id === result.matchedIngredientId)
+      : null;
+
+    const newItem: ShoppingListItem = {
+      ingredientId: matched?.id ?? `scan-${Date.now()}`,
+      ingredientName: matched?.name ?? result.productName,
+      totalQuantity: 1,
+      unit: matched?.unitType ?? 'item',
+      category: matched?.category ?? 'other',
+      cheapestSupermarket: 'Tesco',
+      cheapestPrice: 0,
+      unitLabel: '',
+      allergens: matched?.allergens ?? [],
+      fromRecipes: [],
+      checked: false,
+      isAdHoc: true,
+    };
+    setManualItems((prev) => [...prev, newItem]);
+  }, []);
 
   const handleClearCompleted = useCallback(() => {
     setCheckedItems(new Set());
@@ -343,6 +369,15 @@ export default function ShoppingScreen(): React.ReactElement {
               </Pressable>
             </View>
 
+            {/* Scan to Add */}
+            <Pressable
+              onPress={() => setShowScanModal(true)}
+              style={({ pressed }) => [styles.scanToAddBtn, pressed && styles.scanToAddBtnPressed]}
+            >
+              <Ionicons name="barcode-outline" size={18} color="#1A2B4A" />
+              <Text style={styles.scanToAddBtnText}>Scan to Add Item</Text>
+            </Pressable>
+
             {/* Bottom actions */}
             <View style={styles.bottomActions}>
               <Pressable
@@ -369,6 +404,13 @@ export default function ShoppingScreen(): React.ReactElement {
             </View>
           </View>
         }
+      />
+
+      <BarcodeScanModal
+        visible={showScanModal}
+        action="shopping"
+        onClose={() => setShowScanModal(false)}
+        onResult={handleScanResult}
       />
     </SafeAreaView>
   );
@@ -576,6 +618,24 @@ const styles = StyleSheet.create({
   },
   actionBtnTextDanger: {
     color: '#C0392B',
+  },
+  scanToAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EEF1F7',
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  scanToAddBtnPressed: {
+    opacity: 0.7,
+  },
+  scanToAddBtnText: {
+    color: '#1A2B4A',
+    fontWeight: '700',
+    fontSize: 14,
   },
   emptyText: {
     textAlign: 'center',

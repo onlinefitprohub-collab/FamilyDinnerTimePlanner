@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   Alert,
   StyleSheet,
   SafeAreaView,
+  Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { BarChart } from 'react-native-gifted-charts';
 import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
@@ -16,7 +18,20 @@ import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { calculateRecipeCost } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
-import { AnyRecipe, WeeklyMealPlan } from '../../src/types';
+import { AnyRecipe, WeeklyMealPlan, Supermarket } from '../../src/types';
+import BarcodeScanModal from '../../src/components/BarcodeScanModal';
+import { BarcodeResult } from '../../src/services/openFoodFacts';
+import { supabase } from '../../src/lib/supabase';
+
+const SUPERMARKETS: Supermarket[] = ['Tesco', "Sainsbury's", 'Asda', 'Morrisons', 'Lidl', 'Aldi'];
+const SUPERMARKET_COLORS: Record<Supermarket, string> = {
+  Tesco: '#005EB8',
+  "Sainsbury's": '#F06C00',
+  Asda: '#78BE20',
+  Morrisons: '#FFD700',
+  Lidl: '#0050AA',
+  Aldi: '#00539B',
+};
 
 function getISOWeekKey(date: Date): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -66,6 +81,10 @@ export default function BudgetScreen(): React.ReactElement {
   const { recipes: allRecipes } = useRecipeLibrary();
 
   const [budgetInput, setBudgetInput] = useState(weeklyBudget.toFixed(2));
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanResult, setScanResult] = useState<BarcodeResult | null>(null);
+  const [pricePaid, setPricePaid] = useState('');
+  const [selectedSupermarket, setSelectedSupermarket] = useState<Supermarket>('Tesco');
 
   const currentPlan = plans[currentWeekKey];
 
@@ -107,6 +126,38 @@ export default function BudgetScreen(): React.ReactElement {
   const mostExpensive = recipeWithCosts.length > 0
     ? recipeWithCosts.reduce((a, b) => (a.costPerPerson > b.costPerPerson ? a : b))
     : null;
+
+  const handleScanResult = useCallback((result: BarcodeResult) => {
+    setScanResult(result);
+    setPricePaid('');
+  }, []);
+
+  const handleLogPrice = useCallback(async () => {
+    if (!scanResult) return;
+    const price = parseFloat(pricePaid);
+    if (isNaN(price) || price <= 0) {
+      Alert.alert('Invalid price', 'Enter a valid price greater than 0.');
+      return;
+    }
+    const ingredientId = scanResult.matchedIngredientId ?? `custom-${scanResult.barcode}`;
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session.session?.user?.id;
+      if (userId) {
+        await supabase.from('price_logs').insert({
+          user_id: userId,
+          ingredient_id: ingredientId,
+          supermarket: selectedSupermarket,
+          price_paid: price,
+          logged_at: new Date().toISOString(),
+        });
+      }
+      Alert.alert('Logged!', `£${price.toFixed(2)} at ${selectedSupermarket} saved.`);
+      setScanResult(null);
+    } catch {
+      Alert.alert('Error', 'Could not log price. Please try again.');
+    }
+  }, [scanResult, pricePaid, selectedSupermarket]);
 
   const handleSaveBudget = (): void => {
     const parsed = parseFloat(budgetInput.replace('£', '').trim());
@@ -245,6 +296,15 @@ export default function BudgetScreen(): React.ReactElement {
           )}
         </View>
 
+        {/* Scan & Compare */}
+        <Pressable
+          onPress={() => setShowScanModal(true)}
+          style={({ pressed }) => [styles.scanCompareBtn, pressed && styles.scanCompareBtnPressed]}
+        >
+          <Ionicons name="barcode-outline" size={18} color="#1A2B4A" />
+          <Text style={styles.scanCompareBtnText}>Scan & Compare Prices</Text>
+        </Pressable>
+
         {/* Suggest cheaper week */}
         <Pressable
           onPress={handleSuggestCheaperWeek}
@@ -285,6 +345,93 @@ export default function BudgetScreen(): React.ReactElement {
           </Text>
         </View>
       </ScrollView>
+
+      <BarcodeScanModal
+        visible={showScanModal}
+        action="budget"
+        onClose={() => setShowScanModal(false)}
+        onResult={handleScanResult}
+      />
+
+      {/* Price log modal */}
+      <Modal visible={!!scanResult} animationType="slide" transparent>
+        <View style={styles.priceModalOverlay}>
+          <View style={styles.priceModalCard}>
+            <Text style={styles.priceModalTitle}>Log Price</Text>
+            {scanResult && (
+              <>
+                <Text style={styles.priceModalProduct}>{scanResult.productName}</Text>
+                {scanResult.matchedIngredientName && (
+                  <Text style={styles.priceModalMatch}>
+                    Matched: {scanResult.matchedIngredientName}
+                  </Text>
+                )}
+
+                {/* Supermarket selector */}
+                <Text style={styles.priceModalLabel}>Where did you buy it?</Text>
+                <View style={styles.supermarketChips}>
+                  {SUPERMARKETS.map((sm) => (
+                    <Pressable
+                      key={sm}
+                      onPress={() => setSelectedSupermarket(sm)}
+                      style={[
+                        styles.smChip,
+                        selectedSupermarket === sm && { backgroundColor: SUPERMARKET_COLORS[sm] },
+                      ]}
+                    >
+                      <Text style={[
+                        styles.smChipText,
+                        selectedSupermarket === sm && styles.smChipTextActive,
+                      ]}>
+                        {sm}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Price paid input */}
+                <Text style={styles.priceModalLabel}>How much did you pay?</Text>
+                <View style={styles.priceInputRow}>
+                  <Text style={styles.poundSign}>£</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    value={pricePaid}
+                    onChangeText={setPricePaid}
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor="#9CA3AF"
+                    selectTextOnFocus
+                  />
+                </View>
+
+                {/* Comparison against data prices */}
+                {scanResult.matchedIngredientId && (() => {
+                  const ing = allIngredients.find((i) => i.id === scanResult.matchedIngredientId);
+                  if (!ing) return null;
+                  return (
+                    <View style={styles.comparisonTable}>
+                      <Text style={styles.comparisonTitle}>Current prices in our database:</Text>
+                      {ing.prices.map((p) => (
+                        <View key={p.supermarket} style={styles.comparisonRow}>
+                          <Text style={styles.comparisonSm}>{p.supermarket}</Text>
+                          <Text style={styles.comparisonPrice}>£{p.pricePerUnit.toFixed(2)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
+
+                <Pressable style={styles.logBtn} onPress={() => void handleLogPrice()}>
+                  <Text style={styles.logBtnText}>Log This Price</Text>
+                </Pressable>
+                <Pressable style={styles.priceModalCancel} onPress={() => setScanResult(null)}>
+                  <Text style={styles.priceModalCancelText}>Cancel</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -438,4 +585,55 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
   },
+  scanCompareBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#EEF1F7', borderRadius: 12,
+    paddingVertical: 14, marginBottom: 12,
+  },
+  scanCompareBtnPressed: { opacity: 0.7 },
+  scanCompareBtnText: { color: '#1A2B4A', fontWeight: '700', fontSize: 15 },
+  priceModalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+  },
+  priceModalCard: {
+    backgroundColor: '#FAFAF8', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 48, gap: 12,
+  },
+  priceModalTitle: { fontSize: 20, fontWeight: '800', color: '#1A2B4A' },
+  priceModalProduct: { fontSize: 16, fontWeight: '600', color: '#374151' },
+  priceModalMatch: { fontSize: 13, color: '#8FAF7E', fontWeight: '600' },
+  priceModalLabel: {
+    fontSize: 12, fontWeight: '700', color: '#6B7280',
+    textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 4,
+  },
+  supermarketChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  smChip: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+    backgroundColor: '#F3F4F6', borderWidth: 1.5, borderColor: '#E5E7EB',
+  },
+  smChipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  smChipTextActive: { color: '#fff' },
+  priceInputRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
+    borderRadius: 10, overflow: 'hidden',
+  },
+  poundSign: {
+    paddingHorizontal: 12, fontSize: 18, fontWeight: '700', color: '#1A2B4A',
+  },
+  priceInput: {
+    flex: 1, paddingVertical: 12, paddingRight: 14,
+    fontSize: 18, color: '#1A2B4A', fontWeight: '700',
+  },
+  comparisonTable: { backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12, gap: 6 },
+  comparisonTitle: { fontSize: 12, fontWeight: '700', color: '#6B7280', marginBottom: 4 },
+  comparisonRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  comparisonSm: { fontSize: 13, color: '#374151' },
+  comparisonPrice: { fontSize: 13, fontWeight: '700', color: '#1A2B4A' },
+  logBtn: {
+    backgroundColor: '#E8A020', borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+  },
+  logBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  priceModalCancel: { paddingVertical: 10, alignItems: 'center' },
+  priceModalCancelText: { color: '#6B7280', fontWeight: '600' },
 });

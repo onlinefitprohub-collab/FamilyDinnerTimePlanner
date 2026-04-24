@@ -83,6 +83,11 @@ export default function MoreScreen(): React.ReactElement {
       title: 'Settings',
       rows: [
         {
+          icon: 'person-circle-outline',
+          label: 'My Profile',
+          href: '/settings/profile',
+        },
+        {
           icon: 'people-outline',
           label: 'Family Profiles',
           href: '/settings/family',

@@ -22,6 +22,8 @@ import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { scoreRecipeByPantry } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
 import { Ingredient, FreezerItem, IngredientCategory, AnyRecipe } from '../../src/types';
+import BarcodeScanModal from '../../src/components/BarcodeScanModal';
+import { BarcodeResult } from '../../src/services/openFoodFacts';
 
 type CupboardTab = 'cupboard' | 'freezer';
 type MatchFilter = '100' | '1-2';
@@ -56,6 +58,8 @@ export default function PantryScreen(): React.ReactElement {
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
   const [matchFilter, setMatchFilter] = useState<MatchFilter>('100');
   const [showAddFreezerModal, setShowAddFreezerModal] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanTarget, setScanTarget] = useState<'pantry' | 'freezer'>('pantry');
 
   // Freezer form state
   const [freezerLabel, setFreezerLabel] = useState('');
@@ -173,6 +177,22 @@ export default function PantryScreen(): React.ReactElement {
     freezerLabel, freezerType, freezerPortions, freezerQuantity,
     freezerDate, freezerUseBy, user, addFreezerItem,
   ]);
+
+  const handleScanResult = useCallback((result: BarcodeResult) => {
+    if (scanTarget === 'pantry') {
+      if (result.matchedIngredientId) {
+        void toggleInStock(result.matchedIngredientId, 1);
+        Alert.alert('Added to pantry', `${result.matchedIngredientName ?? result.productName} marked as in stock.`);
+      } else {
+        Alert.alert('No match', `"${result.productName}" could not be matched to an ingredient in your pantry list.`);
+      }
+    } else {
+      // For freezer: open the add-freezer modal pre-filled
+      setFreezerLabel(result.matchedIngredientName ?? result.productName);
+      setFreezerType('ingredient');
+      setShowAddFreezerModal(true);
+    }
+  }, [scanTarget, toggleInStock]);
 
   const renderIngredient = useCallback(
     ({ item }: { item: Ingredient }) => {
@@ -300,6 +320,13 @@ export default function PantryScreen(): React.ReactElement {
               <Text style={styles.suggestBtnText}>What Can I Make?</Text>
             </Pressable>
             <Pressable
+              onPress={() => { setScanTarget('pantry'); setShowScanModal(true); }}
+              style={({ pressed }) => [styles.scanBtn, pressed && styles.scanBtnPressed]}
+            >
+              <Ionicons name="barcode-outline" size={18} color="#fff" />
+              <Text style={styles.scanBtnText}>Scan</Text>
+            </Pressable>
+            <Pressable
               onPress={handleClearAll}
               style={({ pressed }) => [styles.clearBtn, pressed && styles.clearBtnPressed]}
             >
@@ -331,6 +358,13 @@ export default function PantryScreen(): React.ReactElement {
               {freezerItems.length} item{freezerItems.length !== 1 ? 's' : ''}
             </Text>
             <Pressable
+              onPress={() => { setScanTarget('freezer'); setShowScanModal(true); }}
+              style={({ pressed }) => [styles.scanBtn, pressed && styles.scanBtnPressed]}
+            >
+              <Ionicons name="barcode-outline" size={16} color="#fff" />
+              <Text style={styles.scanBtnText}>Scan to Log</Text>
+            </Pressable>
+            <Pressable
               onPress={() => setShowAddFreezerModal(true)}
               style={({ pressed }) => [
                 styles.addFreezerBtn,
@@ -338,7 +372,7 @@ export default function PantryScreen(): React.ReactElement {
               ]}
             >
               <Ionicons name="add" size={18} color="#FFFFFF" />
-              <Text style={styles.addFreezerBtnText}>Add to Freezer</Text>
+              <Text style={styles.addFreezerBtnText}>Add</Text>
             </Pressable>
           </View>
           <FlatList
@@ -458,6 +492,13 @@ export default function PantryScreen(): React.ReactElement {
           />
         </SafeAreaView>
       </Modal>
+
+      <BarcodeScanModal
+        visible={showScanModal}
+        action={scanTarget}
+        onClose={() => setShowScanModal(false)}
+        onResult={handleScanResult}
+      />
 
       {/* Add Freezer Item Modal */}
       <Modal
@@ -633,6 +674,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#C0392B',
     fontWeight: '600',
+  },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A2B4A',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 5,
+  },
+  scanBtnPressed: {
+    opacity: 0.8,
+  },
+  scanBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
   sectionHeader: {
     backgroundColor: '#F3F4F6',
