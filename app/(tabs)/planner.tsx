@@ -111,6 +111,10 @@ export default function PlannerScreen(): React.ReactElement {
   const [templateModalMode, setTemplateModalMode] = useState<'save' | 'load'>('load');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importJson, setImportJson] = useState('');
+  const [showCheaperModal, setShowCheaperModal] = useState(false);
+  const [cheaperSuggestions, setCheaperSuggestions] = useState<
+    { day: MealDay; current: AnyRecipe; suggestion: AnyRecipe; saving: number }[]
+  >([]);
 
   const plans = useMealPlanStore((s) => s.plans);
   const setMeal = useMealPlanStore((s) => s.setMeal);
@@ -192,6 +196,61 @@ export default function PlannerScreen(): React.ReactElement {
     },
     [currentWeekKey, removeMeal],
   );
+
+  const handleSuggestCheaperWeek = useCallback(() => {
+    if (!currentPlan) {
+      Alert.alert('No Plan', 'Add some meals to your plan first.');
+      return;
+    }
+    const days: MealDay[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const suggestions: { day: MealDay; current: AnyRecipe; suggestion: AnyRecipe; saving: number }[] = [];
+
+    for (const day of days) {
+      const recipeId = currentPlan[day];
+      if (!recipeId) continue;
+      const current = allRecipes.find((r) => r.id === recipeId);
+      if (!current) continue;
+      const currentCost = calculateRecipeCost(current, ingredients, familySize);
+
+      // Prefer same category, fall back to any recipe
+      let bestRecipe: AnyRecipe | null = null;
+      let bestCost = currentCost;
+
+      for (const r of allRecipes) {
+        if (r.id === recipeId) continue;
+        if (r.category !== current.category) continue;
+        const cost = calculateRecipeCost(r, ingredients, familySize);
+        if (cost < bestCost) { bestCost = cost; bestRecipe = r; }
+      }
+      if (!bestRecipe) {
+        for (const r of allRecipes) {
+          if (r.id === recipeId) continue;
+          const cost = calculateRecipeCost(r, ingredients, familySize);
+          if (cost < bestCost) { bestCost = cost; bestRecipe = r; }
+        }
+      }
+
+      if (bestRecipe) {
+        suggestions.push({ day, current, suggestion: bestRecipe, saving: currentCost - bestCost });
+      }
+    }
+
+    if (suggestions.length === 0) {
+      Alert.alert('Already Optimal', "Your week's meals are already the cheapest options available!");
+      return;
+    }
+    setCheaperSuggestions(suggestions);
+    setShowCheaperModal(true);
+  }, [currentPlan, allRecipes, familySize]);
+
+  const handleApplyAllSuggestions = useCallback(() => {
+    for (const s of cheaperSuggestions) {
+      setMeal(currentWeekKey, s.day, s.suggestion.id);
+    }
+    const totalSaving = cheaperSuggestions.reduce((sum, s) => sum + s.saving, 0);
+    setShowCheaperModal(false);
+    Alert.alert('Applied!', `Cheaper week applied — saving £${totalSaving.toFixed(2)}.`);
+  }, [cheaperSuggestions, currentWeekKey, setMeal]);
 
   const handleSaveTemplate = useCallback(() => {
     if (!user?.id) {
@@ -559,6 +618,15 @@ export default function PlannerScreen(): React.ReactElement {
             <Text style={styles.actionBtnText}>Copy Last Week</Text>
           </Pressable>
         </View>
+
+        {/* Suggest Cheaper Week */}
+        <Pressable
+          onPress={handleSuggestCheaperWeek}
+          style={({ pressed }) => [styles.suggestBtn, pressed && styles.suggestBtnPressed]}
+        >
+          <Ionicons name="trending-down-outline" size={18} color="#1A2B4A" />
+          <Text style={styles.suggestBtnText}>Suggest a Cheaper Week</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Add Meal Modal */}
@@ -712,6 +780,56 @@ export default function PlannerScreen(): React.ReactElement {
             }
             contentContainerStyle={styles.recipeList}
           />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Suggest Cheaper Week Modal */}
+      <Modal
+        visible={showCheaperModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCheaperModal(false)}
+      >
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Cheaper Week Preview</Text>
+            <Pressable
+              onPress={() => setShowCheaperModal(false)}
+              style={({ pressed }) => [styles.closeBtn, pressed && styles.closeBtnPressed]}
+            >
+              <Text style={styles.closeBtnText}>✕</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.recipeList}>
+            {cheaperSuggestions.length > 0 && (
+              <View style={styles.cheaperSummaryBox}>
+                <Text style={styles.cheaperSummaryText}>
+                  Total saving: £{cheaperSuggestions.reduce((s, c) => s + c.saving, 0).toFixed(2)}
+                </Text>
+              </View>
+            )}
+            {cheaperSuggestions.map((s) => (
+              <View key={s.day} style={styles.cheaperRow}>
+                <View style={styles.cheaperDayLabel}>
+                  <Text style={styles.cheaperDay}>{s.day.charAt(0).toUpperCase() + s.day.slice(1)}</Text>
+                </View>
+                <View style={styles.cheaperDetails}>
+                  <View style={styles.cheaperSwapRow}>
+                    <Text style={styles.cheaperFrom} numberOfLines={1}>{s.current.name}</Text>
+                    <Ionicons name="arrow-forward" size={14} color="#6B7280" />
+                    <Text style={styles.cheaperTo} numberOfLines={1}>{s.suggestion.name}</Text>
+                  </View>
+                  <Text style={styles.cheaperSaving}>Save £{s.saving.toFixed(2)}</Text>
+                </View>
+              </View>
+            ))}
+            <Pressable
+              style={({ pressed }) => [styles.importBtn, pressed && styles.importBtnPressed]}
+              onPress={handleApplyAllSuggestions}
+            >
+              <Text style={styles.importBtnText}>Apply All Suggestions</Text>
+            </Pressable>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -1118,5 +1236,86 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 32,
     paddingHorizontal: 32,
+  },
+  suggestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    paddingVertical: 14,
+    backgroundColor: '#EEF9EE',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#8FAF7E',
+  },
+  suggestBtnPressed: {
+    opacity: 0.75,
+  },
+  suggestBtnText: {
+    color: '#1A2B4A',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  cheaperSummaryBox: {
+    backgroundColor: '#F0FFF0',
+    borderRadius: 10,
+    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  cheaperSummaryText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#166534',
+    textAlign: 'center',
+  },
+  cheaperRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 12,
+  },
+  cheaperDayLabel: {
+    width: 70,
+    paddingTop: 2,
+  },
+  cheaperDay: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A2B4A',
+  },
+  cheaperDetails: {
+    flex: 1,
+    gap: 4,
+  },
+  cheaperSwapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  cheaperFrom: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+    flex: 1,
+  },
+  cheaperTo: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A2B4A',
+    flex: 1,
+  },
+  cheaperSaving: {
+    fontSize: 12,
+    color: '#8FAF7E',
+    fontWeight: '700',
   },
 });

@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { usePantryStore } from '../../src/stores/usePantryStore';
+import { useFreezerStore } from '../../src/stores/useFreezerStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { buildShoppingList } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
@@ -61,6 +62,7 @@ export default function ShoppingScreen(): React.ReactElement {
   const currentWeekKey = useMealPlanStore((s) => s.currentWeekKey);
   const familySize = useAuthStore((s) => s.familySize);
   const pantryItems = usePantryStore((s) => s.items);
+  const freezerItems = useFreezerStore((s) => s.items);
   const { recipes: allRecipes } = useRecipeLibrary();
 
   const currentPlan = plans[currentWeekKey];
@@ -87,15 +89,33 @@ export default function ShoppingScreen(): React.ReactElement {
     );
   }, [pantryDeduction, pantryItems]);
 
+  // Recipes covered by a frozen meal — skip their ingredients from shopping
+  const frozenRecipeIds = useMemo<Set<string>>(() => {
+    const covered = new Set<string>();
+    for (const item of freezerItems) {
+      if (item.type === 'meal' && item.recipeId) {
+        covered.add(item.recipeId);
+      }
+    }
+    return covered;
+  }, [freezerItems]);
+
+  const recipesToShop = useMemo<AnyRecipe[]>(
+    () => weekRecipes.filter((r) => !frozenRecipeIds.has(r.id)),
+    [weekRecipes, frozenRecipeIds],
+  );
+
+  const frozenMealsDeducted = weekRecipes.length - recipesToShop.length;
+
   const shoppingList = useMemo<ShoppingListItem[]>(() => {
     const generated = buildShoppingList(
-      weekRecipes,
+      recipesToShop,
       allIngredients,
       familySize,
       pantryDeduction ? pantryIngredientIds : undefined,
     );
     return [...generated, ...manualItems];
-  }, [weekRecipes, familySize, pantryDeduction, pantryIngredientIds, manualItems]);
+  }, [recipesToShop, familySize, pantryDeduction, pantryIngredientIds, manualItems]);
 
   const totalCost = useMemo(
     () => shoppingList.reduce((sum, item) => sum + item.cheapestPrice, 0),
@@ -265,6 +285,11 @@ export default function ShoppingScreen(): React.ReactElement {
         <Text style={styles.costBannerText}>
           Estimated Total: £{totalCost.toFixed(2)}
         </Text>
+        {frozenMealsDeducted > 0 && (
+          <Text style={styles.costBannerSub}>
+            ❄️ {frozenMealsDeducted} frozen meal{frozenMealsDeducted !== 1 ? 's' : ''} deducted
+          </Text>
+        )}
       </View>
 
       {/* Controls */}
@@ -415,7 +440,7 @@ const styles = StyleSheet.create({
   },
   costBanner: {
     backgroundColor: '#1A2B4A',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
@@ -424,6 +449,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.3,
+  },
+  costBannerSub: {
+    color: '#A5C8FF',
+    fontSize: 12,
+    marginTop: 2,
   },
   controls: {
     backgroundColor: '#FFFFFF',

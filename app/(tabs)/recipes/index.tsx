@@ -284,6 +284,7 @@ export default function RecipesScreen(): React.ReactElement {
         onFavouriteToggle={() => void toggleFavourite(item.id)}
         isFavourite={favourites[item.id] ?? false}
         familyConflicts={conflictsPerRecipe[item.id]}
+        rating={ratings[item.id]}
       />
     ),
     [familySize, favourites, router, toggleFavourite, conflictsPerRecipe],

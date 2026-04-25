@@ -21,6 +21,7 @@ interface Props {
   onFavouriteToggle?: () => void;
   isFavourite?: boolean;
   familyConflicts?: AllergenConflict[];
+  rating?: number;
 }
 
 const DIFFICULTY_COLOURS: Record<string, { bg: string; text: string }> = {
@@ -43,6 +44,7 @@ export default function RecipeCard({
   onFavouriteToggle,
   isFavourite = false,
   familyConflicts,
+  rating,
 }: Props): React.ReactElement {
   const currentMonth = new Date().getMonth() + 1;
   const totalCost = calculateRecipeCost(recipe, allIngredients, familySize);
@@ -161,9 +163,21 @@ export default function RecipeCard({
           </View>
         )}
 
-        {/* Cost badge */}
+        {/* Cost + rating row */}
         <View style={styles.costRow}>
           <CostBadge costPerPerson={costPerPerson} />
+          {rating !== undefined && rating > 0 && (
+            <View style={styles.starRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Ionicons
+                  key={star}
+                  name={star <= rating ? 'star' : 'star-outline'}
+                  size={10}
+                  color="#E8A020"
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Allergen chips */}
@@ -351,6 +365,12 @@ const styles = StyleSheet.create({
   },
   costRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  starRow: {
+    flexDirection: 'row',
+    gap: 1,
   },
   allergenRow: {
     flexDirection: 'row',
