@@ -1,4 +1,4 @@
-import { AnyRecipe, WeeklyMealPlan, WeeklyNutrition } from '../types';
+import { AnyRecipe, WeeklyMealPlan, WeeklyNutrition, NutritionPer4 } from '../types';
 
 /**
  * Calculates weekly nutrition totals from a meal plan and recipe library.
@@ -71,4 +71,27 @@ export function calculateWeeklyNutrition(
     avgDailyCalories,
     perDayCalories,
   };
+}
+
+/**
+ * Scale a recipe's nutritionPer4 to the given family size.
+ * Returns null if the recipe has no nutrition data.
+ */
+export function calculateRecipeNutrition(
+  recipe: AnyRecipe,
+  familySize: number,
+): NutritionPer4 | null {
+  if (!recipe.nutritionPer4) return null;
+  const scale = familySize / 4;
+  return {
+    calories: Math.round(recipe.nutritionPer4.calories * scale),
+    protein: Math.round(recipe.nutritionPer4.protein * scale),
+    carbs: Math.round(recipe.nutritionPer4.carbs * scale),
+    fat: Math.round(recipe.nutritionPer4.fat * scale),
+  };
+}
+
+/** Human-readable nutrition summary for a single person. */
+export function getNutritionLabel(caloriesPerPerson: number, proteinPerPerson: number): string {
+  return `${Math.round(caloriesPerPerson)} kcal · ${Math.round(proteinPerPerson)}g protein`;
 }

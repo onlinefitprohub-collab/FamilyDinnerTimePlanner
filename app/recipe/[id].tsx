@@ -13,10 +13,10 @@ import { useFavouritesStore } from '../../src/stores/useFavouritesStore';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useRecipeDataStore } from '../../src/stores/useRecipeDataStore';
 import { useAllergenCheck } from '../../src/hooks/useAllergenCheck';
-import { getIngredientById } from '../../src/data/ingredients';
+import { getIngredientById, ingredients as allIngredients } from '../../src/data/ingredients';
 import { getDealsForIngredient } from '../../src/data/deals';
 import { ALLERGEN_LABELS } from '../../src/utils/allergens';
-import { calculateRecipeCost, scaleQuantity } from '../../src/utils/pricing';
+import { calculateRecipeCost } from '../../src/utils/pricing';
 import { calculateRecipeNutrition, getNutritionLabel } from '../../src/utils/nutrition';
 import FamilySizeSelector from '../../src/components/FamilySizeSelector';
 import SupermarketChip from '../../src/components/SupermarketChip';
@@ -114,9 +114,35 @@ export default function RecipeDetailScreen() {
 
   const isFav = favourites[recipe.id] ?? false;
   const myRating = ratings[recipe.id] ?? 0;
-  const { totalCost, costPerPerson, ingredientBreakdown } = calculateRecipeCost(
-    recipe, familySize, pantryItems,
-  );
+  const totalCost = calculateRecipeCost(recipe, allIngredients, familySize);
+  const costPerPerson = familySize > 0 ? totalCost / familySize : 0;
+  const scale = familySize / 4;
+  const pantryIds = new Set(pantryItems.filter((p) => p.inStock).map((p) => p.ingredientId));
+  const ingredientBreakdown = recipe.ingredients.map((ri) => {
+    const ingredient = getIngredientById(ri.ingredientId);
+    if (!ingredient) return null;
+    const inPantry = pantryIds.has(ri.ingredientId);
+    let cheapestSupermarket = ingredient.prices[0]?.supermarket ?? ('Tesco' as const);
+    let cheapestPrice = ingredient.prices[0]?.pricePerUnit ?? 0;
+    for (const p of ingredient.prices) {
+      if (p.pricePerUnit < cheapestPrice) { cheapestPrice = p.pricePerUnit; cheapestSupermarket = p.supermarket; }
+    }
+    const scaledCost = cheapestPrice * ((ri.quantityPer4 * scale) / ingredient.baseQuantityPer4);
+    const deals = getDealsForIngredient(ri.ingredientId);
+    const deal = deals[0] ?? null;
+    return {
+      ingredientId: ri.ingredientId,
+      ingredientName: ingredient.name,
+      scaledQuantity: Math.ceil(ri.quantityPer4 * scale),
+      unit: ri.unit,
+      allergens: ingredient.allergens,
+      inPantry,
+      cheapestSupermarket,
+      cheapestPrice: scaledCost,
+      onOffer: deal !== null,
+      dealLabel: deal?.dealLabel ?? '',
+    };
+  }).filter((r): r is NonNullable<typeof r> => r !== null);
   const nutrition = calculateRecipeNutrition(recipe, familySize);
   const perPerson = nutrition
     ? { calories: nutrition.calories / familySize, protein: nutrition.protein / familySize,

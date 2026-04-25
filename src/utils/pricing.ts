@@ -1,6 +1,5 @@
-import { AnyRecipe, Recipe, PantryItem, FreezerItem, ShoppingListItem, IngredientCostRow, RecipeIngredient, Supermarket, IngredientCategory } from '../types';
+import { AnyRecipe, Ingredient, ShoppingListItem, Supermarket, IngredientCategory } from '../types';
 import { getIngredientById } from '../data/ingredients';
-import { getDealsForIngredient } from '../data/deals';
 
 export function scaleQuantity(baseQuantity: number, familySize: number): number {
   return Math.ceil((baseQuantity * familySize) / 4);

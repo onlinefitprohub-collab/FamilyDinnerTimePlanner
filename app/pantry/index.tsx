@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePantryStore } from '../../src/stores/usePantryStore';
 import { useFreezerStore } from '../../src/stores/useFreezerStore';
@@ -55,7 +55,12 @@ function getDaysInFreezer(frozenAt: string): number {
 
 export default function PantryScreen(): React.ReactElement {
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const [activeTab, setActiveTab] = useState<CupboardTab>('cupboard');
+
+  useEffect(() => {
+    if (tab === 'freezer') setActiveTab('freezer');
+  }, [tab]);
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
   const [matchFilter, setMatchFilter] = useState<MatchFilter>('100');
   const [showAddFreezerModal, setShowAddFreezerModal] = useState(false);
