@@ -12,6 +12,7 @@ import { usePantryStore } from '../../src/stores/usePantryStore';
 import { useFavouritesStore } from '../../src/stores/useFavouritesStore';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useRecipeDataStore } from '../../src/stores/useRecipeDataStore';
+import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore';
 import { useAllergenCheck } from '../../src/hooks/useAllergenCheck';
 import { getIngredientById, ingredients as allIngredients } from '../../src/data/ingredients';
 import { getDealsForIngredient } from '../../src/data/deals';
@@ -37,6 +38,8 @@ export default function RecipeDetailScreen() {
   const { favourites, ratings, toggleFavourite, setRating } = useFavouritesStore();
   const { getCurrentWeekKey, setMeal } = useMealPlanStore();
   const { deleteCustomRecipe, deleteImportedRecipe, addCustomRecipe } = useRecipeDataStore();
+  const addExtraRecipe = useShoppingExtrasStore((s) => s.addExtraRecipe);
+  const extraRecipeIds = useShoppingExtrasStore((s) => s.extraRecipeIds);
   const { conflicts } = useAllergenCheck(id ?? '');
 
   const [showDayPicker, setShowDayPicker] = useState(false);
@@ -341,9 +344,25 @@ export default function RecipeDetailScreen() {
           <Ionicons name="calendar-outline" size={20} color="#1A2B4A" />
           <Text style={styles.stickyBtnText}>Add to Plan</Text>
         </Pressable>
-        <Pressable style={styles.stickyBtn} onPress={() => router.push('/(tabs)/shopping')}>
-          <Ionicons name="cart-outline" size={20} color="#1A2B4A" />
-          <Text style={styles.stickyBtnText}>Shopping</Text>
+        <Pressable
+          style={styles.stickyBtn}
+          onPress={() => {
+            addExtraRecipe(recipe.id);
+            const alreadyAdded = extraRecipeIds.includes(recipe.id);
+            Alert.alert(
+              alreadyAdded ? 'Already on list' : 'Added to list!',
+              alreadyAdded
+                ? `${recipe.name} is already on your shopping list.`
+                : `${recipe.name}'s ingredients added to your shopping list.`,
+            );
+          }}
+        >
+          <Ionicons
+            name={extraRecipeIds.includes(recipe.id) ? 'cart' : 'cart-outline'}
+            size={20}
+            color={extraRecipeIds.includes(recipe.id) ? '#E8A020' : '#1A2B4A'}
+          />
+          <Text style={styles.stickyBtnText}>Add to List</Text>
         </Pressable>
         <Pressable style={styles.stickyBtn} onPress={() => toggleFavourite(recipe.id)}>
           <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={20} color={isFav ? '#C0392B' : '#1A2B4A'} />

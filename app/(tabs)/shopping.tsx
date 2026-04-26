@@ -16,6 +16,7 @@ import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { usePantryStore } from '../../src/stores/usePantryStore';
 import { useFreezerStore } from '../../src/stores/useFreezerStore';
+import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { buildShoppingList } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
@@ -63,6 +64,8 @@ export default function ShoppingScreen(): React.ReactElement {
   const familySize = useAuthStore((s) => s.familySize);
   const pantryItems = usePantryStore((s) => s.items);
   const freezerItems = useFreezerStore((s) => s.items);
+  const extraRecipeIds = useShoppingExtrasStore((s) => s.extraRecipeIds);
+  const clearExtras = useShoppingExtrasStore((s) => s.clearExtras);
   const { recipes: allRecipes } = useRecipeLibrary();
 
   const currentPlan = plans[currentWeekKey];
@@ -107,15 +110,28 @@ export default function ShoppingScreen(): React.ReactElement {
 
   const frozenMealsDeducted = weekRecipes.length - recipesToShop.length;
 
+  // Extra recipes added from recipe detail "Add to List" button
+  const extraRecipes = useMemo<AnyRecipe[]>(() => {
+    const weekIds = new Set(weekRecipes.map((r) => r.id));
+    return extraRecipeIds
+      .map((id) => allRecipes.find((r) => r.id === id))
+      .filter((r): r is AnyRecipe => r != null && !weekIds.has(r.id));
+  }, [extraRecipeIds, allRecipes, weekRecipes]);
+
+  const allRecipesToShop = useMemo<AnyRecipe[]>(
+    () => [...recipesToShop, ...extraRecipes],
+    [recipesToShop, extraRecipes],
+  );
+
   const shoppingList = useMemo<ShoppingListItem[]>(() => {
     const generated = buildShoppingList(
-      recipesToShop,
+      allRecipesToShop,
       allIngredients,
       familySize,
       pantryDeduction ? pantryIngredientIds : undefined,
     );
     return [...generated, ...manualItems];
-  }, [recipesToShop, familySize, pantryDeduction, pantryIngredientIds, manualItems]);
+  }, [allRecipesToShop, familySize, pantryDeduction, pantryIngredientIds, manualItems]);
 
   const totalCost = useMemo(
     () => shoppingList.reduce((sum, item) => sum + item.cheapestPrice, 0),
@@ -290,6 +306,16 @@ export default function ShoppingScreen(): React.ReactElement {
             ❄️ {frozenMealsDeducted} frozen meal{frozenMealsDeducted !== 1 ? 's' : ''} deducted
           </Text>
         )}
+        {extraRecipes.length > 0 && (
+          <View style={styles.extrasBanner}>
+            <Text style={styles.extrasText}>
+              + {extraRecipes.length} extra recipe{extraRecipes.length !== 1 ? 's' : ''} added
+            </Text>
+            <Pressable onPress={clearExtras} style={styles.extrasClearBtn}>
+              <Text style={styles.extrasClearText}>Clear</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       {/* Controls */}
@@ -454,6 +480,29 @@ const styles = StyleSheet.create({
     color: '#A5C8FF',
     fontSize: 12,
     marginTop: 2,
+  },
+  extrasBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 10,
+  },
+  extrasText: {
+    color: '#E8A020',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  extrasClearBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E8A020',
+  },
+  extrasClearText: {
+    color: '#E8A020',
+    fontSize: 11,
+    fontWeight: '700',
   },
   controls: {
     backgroundColor: '#FFFFFF',

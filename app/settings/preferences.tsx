@@ -3,6 +3,14 @@ import { View, Text, Switch, ScrollView, StyleSheet, Alert, Platform } from 'rea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
+import { useFreezerStore } from '../../src/stores/useFreezerStore';
+import { useBudgetStore } from '../../src/stores/useBudgetStore';
+import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
+import { useAuthStore } from '../../src/stores/useAuthStore';
+import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
+import { calculateRecipeCost } from '../../src/utils/pricing';
+import { ingredients as allIngredients } from '../../src/data/ingredients';
+import { AnyRecipe, WeeklyMealPlan } from '../../src/types';
 
 const KEYS = {
   fussyEater: '@fussy_eater_mode',
@@ -11,10 +19,102 @@ const KEYS = {
   budget: '@notif_budget',
 };
 
+const DAYS: (keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'>)[] = [
+  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+];
+
 async function requestPermission(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   const { status } = await Notifications.requestPermissionsAsync();
   return status === 'granted';
+}
+
+function getDaysInFreezer(frozenAt: string): number {
+  return Math.floor((Date.now() - new Date(frozenAt).getTime()) / 86400000);
+}
+
+async function rescheduleAll(
+  weekly: boolean,
+  freezer: boolean,
+  budget: boolean,
+  allRecipes: AnyRecipe[],
+) {
+  await Notifications.cancelAllScheduledNotificationsAsync();
+
+  if (weekly) {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Time to plan your meals! 🍽️',
+        body: "You haven't set your meal plan for next week yet. Tap to start planning!",
+      },
+      trigger: { weekday: 1, hour: 19, minute: 0, repeats: true } as Notifications.WeeklyTriggerInput,
+    });
+  }
+
+  if (freezer) {
+    const freezerItems = useFreezerStore.getState().items;
+    const approaching = freezerItems.filter((item) => getDaysInFreezer(item.frozenAt) >= 75);
+
+    if (approaching.length > 0) {
+      for (const item of approaching) {
+        const days = getDaysInFreezer(item.frozenAt);
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '❄️ Freezer item nearing 3 months',
+            body: `"${item.label}" has been frozen ${days} days — use it before it goes off!`,
+          },
+          trigger: null,
+        });
+      }
+    }
+
+    // Weekly Wednesday morning reminder to check the freezer
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '❄️ Weekly Freezer Check',
+        body: 'Check your freezer for items approaching 3 months old.',
+      },
+      trigger: { weekday: 4, hour: 9, minute: 0, repeats: true } as Notifications.WeeklyTriggerInput,
+    });
+  }
+
+  if (budget) {
+    const weeklyBudget = useBudgetStore.getState().weeklyBudget;
+    const currentWeekKey = useMealPlanStore.getState().currentWeekKey;
+    const plans = useMealPlanStore.getState().plans;
+    const familySize = useAuthStore.getState().familySize;
+    const plan = plans[currentWeekKey];
+
+    if (plan && weeklyBudget > 0) {
+      const totalSpend = DAYS.reduce((sum, day) => {
+        const recipeId = plan[day];
+        if (!recipeId) return sum;
+        const recipe = allRecipes.find((r) => r.id === recipeId);
+        if (!recipe) return sum;
+        return sum + calculateRecipeCost(recipe, allIngredients, familySize);
+      }, 0);
+
+      const pct = totalSpend / weeklyBudget;
+      if (pct >= 0.8) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '💰 Budget Alert',
+            body: `You've used ${Math.round(pct * 100)}% of your £${weeklyBudget.toFixed(2)} weekly budget!`,
+          },
+          trigger: null,
+        });
+      }
+    }
+
+    // Sunday evening budget summary
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '💰 Weekly Budget Summary',
+        body: 'Check how your dinner spend compared to your budget this week.',
+      },
+      trigger: { weekday: 1, hour: 18, minute: 0, repeats: true } as Notifications.WeeklyTriggerInput,
+    });
+  }
 }
 
 export default function PreferencesScreen() {
@@ -22,6 +122,8 @@ export default function PreferencesScreen() {
   const [weeklyNotif, setWeeklyNotif] = useState(false);
   const [freezerNotif, setFreezerNotif] = useState(false);
   const [budgetNotif, setBudgetNotif] = useState(false);
+
+  const { recipes: allRecipes } = useRecipeLibrary();
 
   useEffect(() => {
     AsyncStorage.multiGet([KEYS.fussyEater, KEYS.weekly, KEYS.freezer, KEYS.budget]).then((pairs) => {
@@ -37,24 +139,24 @@ export default function PreferencesScreen() {
     await AsyncStorage.setItem(key, String(value));
   };
 
-  const handleWeeklyNotif = async (value: boolean) => {
+  const handleNotifToggle = async (
+    key: string,
+    value: boolean,
+    setter: (v: boolean) => void,
+    weekly: boolean,
+    freezer: boolean,
+    budget: boolean,
+  ) => {
     if (value) {
       const granted = await requestPermission();
       if (!granted) {
         Alert.alert('Permission needed', 'Please allow notifications in your device settings.');
         return;
       }
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Time to plan your meals! 🍽️',
-          body: "You haven't set your meal plan for next week yet. Tap to start planning!",
-        },
-        trigger: { weekday: 1, hour: 19, minute: 0, repeats: true } as Notifications.WeeklyTriggerInput,
-      });
-    } else {
-      await Notifications.cancelAllScheduledNotificationsAsync();
     }
-    toggle(KEYS.weekly, value, setWeeklyNotif);
+    setter(value);
+    await AsyncStorage.setItem(key, String(value));
+    await rescheduleAll(weekly, freezer, budget, allRecipes);
   };
 
   return (
@@ -73,21 +175,27 @@ export default function PreferencesScreen() {
         <Section title="Notifications">
           <Row
             label="Weekly Plan Reminder"
-            description="Reminds you on Sunday evenings to plan next week's meals."
+            description="Reminds you on Monday evenings to plan next week's meals."
             value={weeklyNotif}
-            onToggle={handleWeeklyNotif}
+            onToggle={(v) =>
+              handleNotifToggle(KEYS.weekly, v, setWeeklyNotif, v, freezerNotif, budgetNotif)
+            }
           />
           <Row
             label="Freezer Use-By Warning"
-            description="Alerts you when freezer items are approaching 3 months old."
+            description="Alerts you when freezer items are approaching 3 months old, with a weekly Wednesday reminder."
             value={freezerNotif}
-            onToggle={(v) => toggle(KEYS.freezer, v, setFreezerNotif)}
+            onToggle={(v) =>
+              handleNotifToggle(KEYS.freezer, v, setFreezerNotif, weeklyNotif, v, budgetNotif)
+            }
           />
           <Row
             label="Budget Alert"
-            description="Alerts you when your projected weekly spend is approaching your budget limit."
+            description="Alerts you when your projected weekly spend is approaching or over your budget limit."
             value={budgetNotif}
-            onToggle={(v) => toggle(KEYS.budget, v, setBudgetNotif)}
+            onToggle={(v) =>
+              handleNotifToggle(KEYS.budget, v, setBudgetNotif, weeklyNotif, freezerNotif, v)
+            }
           />
         </Section>
       </ScrollView>
