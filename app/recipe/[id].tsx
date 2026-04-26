@@ -36,7 +36,7 @@ export default function RecipeDetailScreen() {
   const { familySize } = useAuthStore();
   const { items: pantryItems } = usePantryStore();
   const { favourites, ratings, toggleFavourite, setRating } = useFavouritesStore();
-  const { getCurrentWeekKey, setMeal } = useMealPlanStore();
+  const { getCurrentWeekKey, setMeal, plans } = useMealPlanStore();
   const { deleteCustomRecipe, deleteImportedRecipe, addCustomRecipe } = useRecipeDataStore();
   const addExtraRecipe = useShoppingExtrasStore((s) => s.addExtraRecipe);
   const extraRecipeIds = useShoppingExtrasStore((s) => s.extraRecipeIds);
@@ -427,24 +427,49 @@ export default function RecipeDetailScreen() {
             <Text style={styles.dayPickerTitle}>
               {dayPickerMode === 'batchcook' ? '❄️ Batch Cook — which day?' : 'Add to which day?'}
             </Text>
-            {DAYS.map((day, i) => (
-              <Pressable
-                key={day}
-                style={styles.dayRow}
-                onPress={() => {
-                  setMeal(getCurrentWeekKey(), day, recipe.id);
-                  setShowDayPicker(false);
-                  Alert.alert(
-                    dayPickerMode === 'batchcook' ? 'Added to Batch Cook Plan' : 'Added!',
-                    dayPickerMode === 'batchcook'
-                      ? `${recipe.name} added for ${DAY_LABELS[i]}. Open the Planner to see your double-batch cost estimate.`
-                      : `${recipe.name} added to ${DAY_LABELS[i]}.`,
-                  );
-                }}
-              >
-                <Text style={styles.dayRowText}>{DAY_LABELS[i]}</Text>
-              </Pressable>
-            ))}
+            <Text style={styles.dayPickerSub}>This week · tap a day to assign</Text>
+            {DAYS.map((day, i) => {
+              const weekKey = getCurrentWeekKey();
+              const existingId = plans[weekKey]?.[day];
+              const existingRecipe = existingId ? getRecipeById(existingId) : null;
+              const isCurrentRecipe = existingId === recipe.id;
+              return (
+                <Pressable
+                  key={day}
+                  style={[styles.dayRow, isCurrentRecipe && styles.dayRowCurrent]}
+                  onPress={() => {
+                    setMeal(weekKey, day, recipe.id);
+                    setShowDayPicker(false);
+                    Alert.alert(
+                      dayPickerMode === 'batchcook' ? 'Added to Batch Cook Plan' : 'Added!',
+                      dayPickerMode === 'batchcook'
+                        ? `${recipe.name} added for ${DAY_LABELS[i]}. Open the Planner to see your double-batch cost estimate.`
+                        : `${recipe.name} added to ${DAY_LABELS[i]}.`,
+                    );
+                  }}
+                >
+                  <View style={styles.dayRowInfo}>
+                    <Text style={[styles.dayRowText, isCurrentRecipe && styles.dayRowTextCurrent]}>
+                      {DAY_LABELS[i]}
+                    </Text>
+                    {existingRecipe && !isCurrentRecipe && (
+                      <Text style={styles.dayRowExisting} numberOfLines={1}>
+                        Replace: {existingRecipe.name}
+                      </Text>
+                    )}
+                    {isCurrentRecipe && (
+                      <Text style={styles.dayRowExistingCurrent}>✓ Already planned</Text>
+                    )}
+                  </View>
+                  {existingRecipe && !isCurrentRecipe && (
+                    <Ionicons name="swap-horizontal" size={16} color="#9CA3AF" />
+                  )}
+                  {!existingRecipe && (
+                    <Ionicons name="add-circle-outline" size={16} color="#8FAF7E" />
+                  )}
+                </Pressable>
+              );
+            })}
             <Pressable style={styles.cancelBtn} onPress={() => setShowDayPicker(false)}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </Pressable>
@@ -536,10 +561,16 @@ const styles = StyleSheet.create({
   stickyBtnText: { fontSize: 11, color: '#1A2B4A', fontWeight: '600' },
   starRow: { flexDirection: 'row', gap: 2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  dayPickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
-  dayPickerTitle: { fontSize: 18, fontWeight: '700', color: '#1A2B4A', marginBottom: 16, textAlign: 'center' },
-  dayRow: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  dayRowText: { fontSize: 16, color: '#1A2B4A', textAlign: 'center' },
-  cancelBtn: { marginTop: 12, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { fontSize: 16, color: '#C0392B', fontWeight: '600' },
+  dayPickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36 },
+  dayPickerTitle: { fontSize: 18, fontWeight: '700', color: '#1A2B4A', marginBottom: 4, textAlign: 'center' },
+  dayPickerSub: { fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginBottom: 14 },
+  dayRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  dayRowCurrent: { backgroundColor: '#F0FDF4', borderRadius: 8, paddingHorizontal: 8, marginHorizontal: -8 },
+  dayRowInfo: { flex: 1 },
+  dayRowText: { fontSize: 15, color: '#1A2B4A', fontWeight: '600' },
+  dayRowTextCurrent: { color: '#8FAF7E' },
+  dayRowExisting: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
+  dayRowExistingCurrent: { fontSize: 11, color: '#8FAF7E', marginTop: 1, fontWeight: '600' },
+  cancelBtn: { marginTop: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 12 },
+  cancelBtnText: { fontSize: 15, color: '#6B7280', fontWeight: '700' },
 });

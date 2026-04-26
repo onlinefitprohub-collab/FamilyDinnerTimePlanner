@@ -119,6 +119,8 @@ export default function PlannerScreen(): React.ReactElement {
     { day: MealDay; current: AnyRecipe; suggestion: AnyRecipe; saving: number }[]
   >([]);
   const [showBatchIngredients, setShowBatchIngredients] = useState(false);
+  const [contextMenuDay, setContextMenuDay] = useState<string | null>(null);
+  const [contextMenuRecipe, setContextMenuRecipe] = useState<AnyRecipe | null>(null);
 
   const plans = useMealPlanStore((s) => s.plans);
   const setMeal = useMealPlanStore((s) => s.setMeal);
@@ -212,21 +214,11 @@ export default function PlannerScreen(): React.ReactElement {
   );
 
   const handleLongPressDay = useCallback(
-    (day: string) => {
-      Alert.alert(
-        'Remove Meal',
-        'Remove this meal from the plan?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: () => removeMeal(currentWeekKey, day),
-          },
-        ],
-      );
+    (day: string, recipe: AnyRecipe) => {
+      setContextMenuDay(day);
+      setContextMenuRecipe(recipe);
     },
-    [currentWeekKey, removeMeal],
+    [],
   );
 
   const handleSuggestCheaperWeek = useCallback(() => {
@@ -496,14 +488,14 @@ export default function PlannerScreen(): React.ReactElement {
                 <Text style={styles.dayName}>{formatDayLabel(date)}</Text>
                 {recipe ? (
                   <Pressable
-                    onLongPress={() => handleLongPressDay(day)}
-                    delayLongPress={500}
+                    onLongPress={() => handleLongPressDay(day, recipe)}
+                    delayLongPress={400}
                     onPress={() => handleOpenAddMeal(day)}
                     style={({ pressed }) => [
                       styles.mealAssigned,
                       pressed && styles.mealAssignedPressed,
                     ]}
-                    accessibilityLabel={`${recipe.name}. Long press to remove.`}
+                    accessibilityLabel={`${recipe.name}. Long press for options.`}
                   >
                     <Image
                       source={{ uri: recipe.image }}
@@ -532,13 +524,6 @@ export default function PlannerScreen(): React.ReactElement {
                         </Text>
                       </View>
                     )}
-                    <Pressable
-                      onPress={() => router.push(`/recipe/cooking/${recipe.id}` as Parameters<typeof router.push>[0])}
-                      style={({ pressed }) => [styles.cookBtn, pressed && styles.cookBtnPressed]}
-                      accessibilityLabel={`Start cooking ${recipe.name}`}
-                    >
-                      <Text style={styles.cookBtnText}>🍳 Cook</Text>
-                    </Pressable>
                   </Pressable>
                 ) : (
                   <Pressable
@@ -700,6 +685,65 @@ export default function PlannerScreen(): React.ReactElement {
           <Text style={styles.suggestBtnText}>Suggest a Cheaper Week</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Long-press context menu */}
+      <Modal
+        visible={contextMenuRecipe !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setContextMenuRecipe(null); setContextMenuDay(null); }}
+      >
+        <Pressable
+          style={styles.contextOverlay}
+          onPress={() => { setContextMenuRecipe(null); setContextMenuDay(null); }}
+        >
+          <View style={styles.contextSheet}>
+            <Text style={styles.contextTitle} numberOfLines={2}>{contextMenuRecipe?.name}</Text>
+            <Pressable
+              style={styles.contextRow}
+              onPress={() => {
+                setContextMenuRecipe(null);
+                setContextMenuDay(null);
+                router.push(`/recipe/${contextMenuRecipe?.id}` as Parameters<typeof router.push>[0]);
+              }}
+            >
+              <Ionicons name="book-outline" size={20} color="#1A2B4A" />
+              <Text style={styles.contextRowText}>View Recipe</Text>
+            </Pressable>
+            <View style={styles.contextDivider} />
+            <Pressable
+              style={styles.contextRow}
+              onPress={() => {
+                setContextMenuRecipe(null);
+                setContextMenuDay(null);
+                router.push(`/recipe/cooking/${contextMenuRecipe?.id}` as Parameters<typeof router.push>[0]);
+              }}
+            >
+              <Ionicons name="flame-outline" size={20} color="#E8A020" />
+              <Text style={[styles.contextRowText, { color: '#E8A020' }]}>Start Cooking</Text>
+            </Pressable>
+            <View style={styles.contextDivider} />
+            <Pressable
+              style={styles.contextRow}
+              onPress={() => {
+                const day = contextMenuDay;
+                setContextMenuRecipe(null);
+                setContextMenuDay(null);
+                if (day) removeMeal(currentWeekKey, day);
+              }}
+            >
+              <Ionicons name="trash-outline" size={20} color="#C0392B" />
+              <Text style={[styles.contextRowText, { color: '#C0392B' }]}>Remove from Plan</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.contextRow, styles.contextCancel]}
+              onPress={() => { setContextMenuRecipe(null); setContextMenuDay(null); }}
+            >
+              <Text style={styles.contextCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Add Meal Modal */}
       <Modal
@@ -1146,20 +1190,57 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0284C7',
   },
-  cookBtn: {
-    marginTop: 6,
-    backgroundColor: '#E8A020',
-    borderRadius: 8,
-    paddingVertical: 5,
-    alignItems: 'center',
+  contextOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
   },
-  cookBtnPressed: {
-    opacity: 0.75,
+  contextSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 36,
+    gap: 2,
   },
-  cookBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
+  contextTitle: {
+    fontSize: 16,
+    fontWeight: '800',
     color: '#1A2B4A',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  contextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  contextRowText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A2B4A',
+  },
+  contextDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginHorizontal: 4,
+  },
+  contextCancel: {
+    justifyContent: 'center',
+    marginTop: 6,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  contextCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#6B7280',
+    textAlign: 'center',
+    flex: 1,
   },
   batchCookCard: {
     marginHorizontal: 16,

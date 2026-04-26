@@ -340,8 +340,8 @@ export default function ShoppingScreen(): React.ReactElement {
           <Switch
             value={pantryDeduction}
             onValueChange={setPantryDeduction}
-            trackColor={{ false: '#D1D5DB', true: '#8FAF7E' }}
-            thumbColor={pantryDeduction ? '#FFFFFF' : '#F9FAFB'}
+            trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#8FAF7E' }}
+            thumbColor="#FFFFFF"
           />
         </View>
         <View style={styles.segmentRow}>
@@ -520,11 +520,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   controls: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1A2B4A',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    paddingTop: 8,
+    paddingBottom: 14,
     gap: 10,
   },
   pantryRow: {
@@ -535,11 +534,11 @@ const styles = StyleSheet.create({
   pantryLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A2B4A',
+    color: 'rgba(255,255,255,0.85)',
   },
   segmentRow: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 8,
     padding: 3,
   },
@@ -560,7 +559,7 @@ const styles = StyleSheet.create({
   segmentBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.55)',
   },
   segmentBtnTextActive: {
     color: '#1A2B4A',

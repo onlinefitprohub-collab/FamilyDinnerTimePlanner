@@ -16,6 +16,7 @@ import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { getActiveDeals } from '../../src/data/deals';
 import { getSeasonalIngredients } from '../../src/data/seasonal';
 import { calculateRecipeCost } from '../../src/utils/pricing';
+import { calculateWeeklyNutrition } from '../../src/utils/nutrition';
 import SupermarketChip from '../../src/components/SupermarketChip';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
 import { WeeklyMealPlan, AnyRecipe } from '../../src/types';
@@ -133,6 +134,11 @@ export default function HomeScreen(): React.ReactElement {
     if (totalSavings < 0.5 || cheaperCount === 0) return null;
     return { savings: totalSavings, count: cheaperCount };
   }, [currentPlan, recipes]);
+
+  const weekNutrition = useMemo(
+    () => calculateWeeklyNutrition(currentPlan, recipes, familySize),
+    [currentPlan, recipes, familySize],
+  );
 
   const firstFourDeals = activeDeals.slice(0, 4);
 
@@ -253,6 +259,37 @@ export default function HomeScreen(): React.ReactElement {
               <Text style={styles.savingsBold}>£{savingsTip.savings.toFixed(2)}</Text>
             </Text>
           </View>
+        </View>
+      )}
+
+      {/* 3d. Nutrition snapshot */}
+      {weekNutrition.avgDailyCalories > 0 && (
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => router.push('/nutrition' as Parameters<typeof router.push>[0])}
+            style={({ pressed }) => [styles.nutritionCard, pressed && styles.rowPressed]}
+          >
+            <View style={styles.nutritionCardHeader}>
+              <Text style={styles.sectionTitle}>This Week's Nutrition</Text>
+              <Text style={styles.nutritionSeeAll}>Details ›</Text>
+            </View>
+            <View style={styles.nutritionStats}>
+              <View style={styles.nutritionStat}>
+                <Text style={styles.nutritionStatValue}>{weekNutrition.avgDailyCalories}</Text>
+                <Text style={styles.nutritionStatLabel}>avg kcal/day</Text>
+              </View>
+              <View style={styles.nutritionStatDivider} />
+              <View style={styles.nutritionStat}>
+                <Text style={styles.nutritionStatValue}>{weekNutrition.totalProtein}g</Text>
+                <Text style={styles.nutritionStatLabel}>protein / week</Text>
+              </View>
+              <View style={styles.nutritionStatDivider} />
+              <View style={styles.nutritionStat}>
+                <Text style={styles.nutritionStatValue}>{weekNutrition.totalCarbs}g</Text>
+                <Text style={styles.nutritionStatLabel}>carbs / week</Text>
+              </View>
+            </View>
+          </Pressable>
         </View>
       )}
 
@@ -716,5 +753,51 @@ const styles = StyleSheet.create({
   savingsBold: {
     fontWeight: '700',
     color: '#1A2B4A',
+  },
+  nutritionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  nutritionCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  nutritionSeeAll: {
+    fontSize: 13,
+    color: '#E8A020',
+    fontWeight: '700',
+  },
+  nutritionStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nutritionStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  nutritionStatValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1A2B4A',
+  },
+  nutritionStatLabel: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  nutritionStatDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#E5E7EB',
   },
 });
