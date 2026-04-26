@@ -392,7 +392,7 @@ export default function BudgetScreen(): React.ReactElement {
                 {/* Price paid input */}
                 <Text style={styles.priceModalLabel}>How much did you pay?</Text>
                 <View style={styles.priceInputRow}>
-                  <Text style={styles.poundSign}>£</Text>
+                  <Text style={styles.priceModalPound}>£</Text>
                   <TextInput
                     style={styles.priceInput}
                     value={pricePaid}
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
     borderRadius: 10, overflow: 'hidden',
   },
-  poundSign: {
+  priceModalPound: {
     paddingHorizontal: 12, fontSize: 18, fontWeight: '700', color: '#1A2B4A',
   },
   priceInput: {

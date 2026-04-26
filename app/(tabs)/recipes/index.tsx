@@ -246,7 +246,7 @@ export default function RecipesScreen(): React.ReactElement {
         case 'time':
           return a.prepTime + a.cookTime - (b.prepTime + b.cookTime);
         case 'difficulty': {
-          const order = { easy: 0, medium: 1, hard: 2 };
+          const order: Record<'easy' | 'medium' | 'hard', number> = { easy: 0, medium: 1, hard: 2 };
           return order[a.difficulty] - order[b.difficulty];
         }
         case 'rating': {
