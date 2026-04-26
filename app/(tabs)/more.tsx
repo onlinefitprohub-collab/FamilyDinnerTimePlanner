@@ -62,6 +62,11 @@ export default function MoreScreen(): React.ReactElement {
           label: 'Freezer',
           href: '/pantry?tab=freezer',
         },
+        {
+          icon: 'barcode-outline',
+          label: 'Scan History',
+          href: '/scan-history',
+        },
       ],
     },
     {
@@ -76,6 +81,11 @@ export default function MoreScreen(): React.ReactElement {
           icon: 'heart-outline',
           label: 'Favourites',
           href: '/favourites',
+        },
+        {
+          icon: 'nutrition-outline',
+          label: 'Nutrition',
+          href: '/nutrition',
         },
       ],
     },

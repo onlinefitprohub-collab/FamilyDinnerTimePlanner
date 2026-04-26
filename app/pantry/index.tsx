@@ -340,6 +340,12 @@ export default function PantryScreen(): React.ReactElement {
               <Text style={styles.scanBtnText}>Scan</Text>
             </Pressable>
             <Pressable
+              onPress={() => router.push('/scan-history' as Parameters<typeof router.push>[0])}
+              style={({ pressed }) => [styles.historyBtn, pressed && styles.scanBtnPressed]}
+            >
+              <Ionicons name="time-outline" size={16} color="#6B7280" />
+            </Pressable>
+            <Pressable
               onPress={handleClearAll}
               style={({ pressed }) => [styles.clearBtn, pressed && styles.clearBtnPressed]}
             >
@@ -754,6 +760,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  historyBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sectionHeader: {
     backgroundColor: '#F3F4F6',

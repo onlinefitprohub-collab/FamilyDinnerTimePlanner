@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useBudgetStore } from '../../src/stores/useBudgetStore';
@@ -102,6 +103,7 @@ type MealDay = keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'>;
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PlannerScreen(): React.ReactElement {
+  const router = useRouter();
   const [currentWeekKey, setCurrentWeekKey] = useState<string>(
     getISOWeekKey(new Date()),
   );
@@ -530,6 +532,13 @@ export default function PlannerScreen(): React.ReactElement {
                         </Text>
                       </View>
                     )}
+                    <Pressable
+                      onPress={() => router.push(`/recipe/cooking/${recipe.id}` as Parameters<typeof router.push>[0])}
+                      style={({ pressed }) => [styles.cookBtn, pressed && styles.cookBtnPressed]}
+                      accessibilityLabel={`Start cooking ${recipe.name}`}
+                    >
+                      <Text style={styles.cookBtnText}>🍳 Cook</Text>
+                    </Pressable>
                   </Pressable>
                 ) : (
                   <Pressable
@@ -584,11 +593,15 @@ export default function PlannerScreen(): React.ReactElement {
           </View>
 
           {/* Nutrition */}
-          <View style={styles.nutritionRow}>
+          <Pressable
+            onPress={() => router.push('/nutrition' as Parameters<typeof router.push>[0])}
+            style={({ pressed }) => [styles.nutritionRow, pressed && { opacity: 0.7 }]}
+          >
             <Text style={styles.nutritionText}>
               Avg daily calories: {nutrition.avgDailyCalories} kcal
             </Text>
-          </View>
+            <Ionicons name="chevron-forward" size={14} color="#9CA3AF" />
+          </Pressable>
         </View>
 
         {/* Batch Cook Section */}
@@ -1079,6 +1092,9 @@ const styles = StyleSheet.create({
   },
   nutritionRow: {
     marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   nutritionText: {
     fontSize: 12,
@@ -1129,6 +1145,21 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     color: '#0284C7',
+  },
+  cookBtn: {
+    marginTop: 6,
+    backgroundColor: '#E8A020',
+    borderRadius: 8,
+    paddingVertical: 5,
+    alignItems: 'center',
+  },
+  cookBtnPressed: {
+    opacity: 0.75,
+  },
+  cookBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A2B4A',
   },
   batchCookCard: {
     marginHorizontal: 16,
