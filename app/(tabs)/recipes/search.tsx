@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, Pressable, FlatList, Modal,
-  StyleSheet, ActivityIndicator, ScrollView, Alert,
+  StyleSheet, ActivityIndicator, ScrollView, Alert, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ export default function RecipeSearchScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ExternalRecipe | null>(null);
   const [matched, setMatched] = useState<MatchedIngredient[]>([]);
+  const [quantities, setQuantities] = useState<Record<number, string>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -107,6 +108,19 @@ export default function RecipeSearchScreen() {
         score: bestScore,
       };
     });
+    // Pre-fill quantities from measure string (e.g. "2 cups" → "2", "1/2" → "0.5")
+    const initialQtys: Record<number, string> = {};
+    matchResults.forEach((m, i) => {
+      const numMatch = m.measure.match(/^(\d+)(?:\/(\d+))?/);
+      if (numMatch) {
+        const whole = parseInt(numMatch[1], 10);
+        const denom = numMatch[2] ? parseInt(numMatch[2], 10) : null;
+        initialQtys[i] = denom ? (whole / denom).toFixed(2).replace(/\.?0+$/, '') : String(whole);
+      } else {
+        initialQtys[i] = '1';
+      }
+    });
+    setQuantities(initialQtys);
     setMatched(matchResults);
     setSelected(recipe);
   };
@@ -128,8 +142,8 @@ export default function RecipeSearchScreen() {
         image: selected.image,
         ingredients: matched.map((m, i) => ({
           ingredientId: m.matchedId ?? `custom-${i}`,
-          quantityPer4: 1,
-          unit: m.measure || 'item',
+          quantityPer4: parseFloat(quantities[i] ?? '1') || 1,
+          unit: m.measure.replace(/^[\d\/\s]+/, '').trim() || 'item',
           notes: m.matchedId ? undefined : m.original,
         })),
         steps: selected.instructions.split('\n').filter(Boolean).map((s, i) => ({
@@ -235,7 +249,7 @@ export default function RecipeSearchScreen() {
 
       {/* Import Modal */}
       <Modal visible={!!selected} animationType="slide">
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           {selected && (
             <>
               <View style={styles.modalHeader}>
@@ -245,7 +259,7 @@ export default function RecipeSearchScreen() {
                 <Text style={styles.modalTitle} numberOfLines={1}>{selected.name}</Text>
                 <View style={{ width: 24 }} />
               </View>
-              <ScrollView>
+              <ScrollView keyboardShouldPersistTaps="handled">
                 <Image source={{ uri: selected.image }} style={styles.modalImage} contentFit="cover" />
                 <View style={styles.modalContent}>
                   <View style={styles.categoryBadge}>
@@ -253,6 +267,7 @@ export default function RecipeSearchScreen() {
                   </View>
                   <Text style={styles.instructionsPreview} numberOfLines={4}>{selected.instructions}</Text>
                   <Text style={styles.matchTitle}>Ingredient Matching</Text>
+                  <Text style={styles.matchSubtitle}>Adjust quantities for 4 servings</Text>
                   {matched.map((m, i) => (
                     <View key={i} style={styles.matchRow}>
                       <View style={[styles.matchDot, { backgroundColor: m.matchedId ? '#8FAF7E' : '#E8A020' }]} />
@@ -263,7 +278,19 @@ export default function RecipeSearchScreen() {
                           : <Text style={styles.unmatchedName}>Will be imported as-is</Text>
                         }
                       </View>
-                      <Text style={styles.matchMeasure}>{m.measure}</Text>
+                      <View style={styles.qtyBlock}>
+                        <TextInput
+                          style={styles.qtyInput}
+                          value={quantities[i] ?? '1'}
+                          onChangeText={(v) => setQuantities((prev) => ({ ...prev, [i]: v }))}
+                          keyboardType="decimal-pad"
+                          selectTextOnFocus
+                          maxLength={6}
+                        />
+                        <Text style={styles.qtyUnit} numberOfLines={1}>
+                          {m.measure.replace(/^[\d\/\s]+/, '').trim() || 'item'}
+                        </Text>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -276,7 +303,7 @@ export default function RecipeSearchScreen() {
               </Pressable>
             </>
           )}
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -315,6 +342,10 @@ const styles = StyleSheet.create({
   matchedName: { fontSize: 12, color: '#8FAF7E', marginTop: 2 },
   unmatchedName: { fontSize: 12, color: '#E8A020', marginTop: 2 },
   matchMeasure: { fontSize: 12, color: '#6B7280' },
+  matchSubtitle: { fontSize: 12, color: '#9CA3AF', marginBottom: 10 },
+  qtyBlock: { alignItems: 'center', gap: 2, minWidth: 60 },
+  qtyInput: { borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, fontSize: 14, fontWeight: '700', color: '#1A2B4A', textAlign: 'center', width: 60, backgroundColor: '#fff' },
+  qtyUnit: { fontSize: 10, color: '#9CA3AF', maxWidth: 60, textAlign: 'center' },
   importBtn: { margin: 16, backgroundColor: '#E8A020', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   importBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   categoryScroll: { maxHeight: 44 },

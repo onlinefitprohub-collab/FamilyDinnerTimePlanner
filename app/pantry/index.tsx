@@ -19,6 +19,7 @@ import { usePantryStore } from '../../src/stores/usePantryStore';
 import { useFreezerStore } from '../../src/stores/useFreezerStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
+import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore';
 import { scoreRecipeByPantry } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
 import { Ingredient, FreezerItem, IngredientCategory, AnyRecipe } from '../../src/types';
@@ -90,6 +91,9 @@ export default function PantryScreen(): React.ReactElement {
 
   const scanHistory = useScanStore((s) => s.history);
   const recentScans = useMemo(() => scanHistory.slice(0, 5), [scanHistory]);
+
+  const addExtraRecipe = useShoppingExtrasStore((s) => s.addExtraRecipe);
+  const extraRecipeIds = useShoppingExtrasStore((s) => s.extraRecipeIds);
 
   const { recipes: allRecipes } = useRecipeLibrary();
 
@@ -483,41 +487,62 @@ export default function PantryScreen(): React.ReactElement {
           <FlatList
             data={scoredRecipes}
             keyExtractor={(item) => item.recipe.id}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  setShowSuggestionsModal(false);
-                  router.push(`/recipe/${item.recipe.id}` as Parameters<typeof router.push>[0]);
-                }}
-                style={({ pressed }) => [
-                  styles.suggestionRow,
-                  pressed && styles.suggestionRowPressed,
-                ]}
-              >
-                <View style={styles.suggestionInfo}>
-                  <Text style={styles.suggestionName}>{item.recipe.name}</Text>
-                  <Text style={styles.suggestionMeta}>
-                    {item.coveredCount}/{item.totalCount} ingredients
-                    {item.missingCost > 0
-                      ? ` · Buy missing for £${item.missingCost.toFixed(2)}`
-                      : ''}
-                  </Text>
-                  <View style={styles.coverageBarBg}>
-                    <View
-                      style={[
-                        styles.coverageBarFill,
-                        {
-                          width: `${item.coveragePercent}%` as `${number}%`,
-                          backgroundColor:
-                            item.coveragePercent === 100 ? '#8FAF7E' : '#E8A020',
-                        },
-                      ]}
-                    />
+            renderItem={({ item }) => {
+              const alreadyAdded = extraRecipeIds.includes(item.recipe.id);
+              return (
+                <Pressable
+                  onPress={() => {
+                    setShowSuggestionsModal(false);
+                    router.push(`/recipe/${item.recipe.id}` as Parameters<typeof router.push>[0]);
+                  }}
+                  style={({ pressed }) => [
+                    styles.suggestionRow,
+                    pressed && styles.suggestionRowPressed,
+                  ]}
+                >
+                  <View style={styles.suggestionInfo}>
+                    <Text style={styles.suggestionName}>{item.recipe.name}</Text>
+                    <Text style={styles.suggestionMeta}>
+                      {item.coveredCount}/{item.totalCount} ingredients
+                      {item.missingCost > 0
+                        ? ` · Buy missing for £${item.missingCost.toFixed(2)}`
+                        : ''}
+                    </Text>
+                    <View style={styles.coverageBarBg}>
+                      <View
+                        style={[
+                          styles.coverageBarFill,
+                          {
+                            width: `${item.coveragePercent}%` as `${number}%`,
+                            backgroundColor:
+                              item.coveragePercent === 100 ? '#8FAF7E' : '#E8A020',
+                          },
+                        ]}
+                      />
+                    </View>
+                    {matchFilter === '1-2' && item.missingCost > 0 && (
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          if (alreadyAdded) {
+                            Alert.alert('Already on list', 'This recipe is already in your shopping list.');
+                          } else {
+                            addExtraRecipe(item.recipe.id);
+                            Alert.alert('Added!', 'Missing ingredients added to your shopping list.');
+                          }
+                        }}
+                        style={[styles.addMissingBtn, alreadyAdded && styles.addMissingBtnDone]}
+                      >
+                        <Text style={styles.addMissingBtnText}>
+                          {alreadyAdded ? '✓ On list' : '🛒 Add missing'}
+                        </Text>
+                      </Pressable>
+                    )}
                   </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
-              </Pressable>
-            )}
+                  <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+                </Pressable>
+              );
+            }}
             ListEmptyComponent={
               <Text style={styles.emptyText}>
                 {matchFilter === '100'
@@ -979,6 +1004,22 @@ const styles = StyleSheet.create({
   coverageBarFill: {
     height: '100%',
     borderRadius: 3,
+  },
+  addMissingBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    backgroundColor: '#E8A020',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  addMissingBtnDone: {
+    backgroundColor: '#8FAF7E',
+  },
+  addMissingBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A2B4A',
   },
   // Form
   formContent: {
