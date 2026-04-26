@@ -20,6 +20,7 @@ import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useTemplatesStore } from '../../src/stores/useTemplatesStore';
 import { useFamilyStore } from '../../src/stores/useFamilyStore';
+import { useFreezerStore } from '../../src/stores/useFreezerStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { calculateRecipeCost } from '../../src/utils/pricing';
 import { calculateWeeklyNutrition } from '../../src/utils/nutrition';
@@ -132,6 +133,15 @@ export default function PlannerScreen(): React.ReactElement {
   const loadTemplate = useTemplatesStore((s) => s.loadTemplate);
 
   const { recipes: allRecipes } = useRecipeLibrary();
+  const freezerItems = useFreezerStore((s) => s.items);
+
+  const frozenRecipeIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const item of freezerItems) {
+      if (item.type === 'meal' && item.recipeId) ids.add(item.recipeId);
+    }
+    return ids;
+  }, [freezerItems]);
 
   const currentPlan = plans[currentWeekKey];
   const weekDates = getWeekDates(currentWeekKey);
@@ -477,6 +487,7 @@ export default function PlannerScreen(): React.ReactElement {
               ? checkAllergenConflicts(recipe, familyMembers)
               : [];
             const hasDanger = conflicts.some((c) => c.conflictType === 'allergen' && c.allergens.length > 0);
+            const isFrozen = recipe ? frozenRecipeIds.has(recipe.id) : false;
 
             return (
               <View key={day} style={styles.dayCard}>
@@ -502,6 +513,11 @@ export default function PlannerScreen(): React.ReactElement {
                       {recipe.name}
                     </Text>
                     <CostBadge costPerPerson={costPerPerson2} />
+                    {isFrozen && (
+                      <View style={styles.frozenBadge}>
+                        <Text style={styles.frozenBadgeText}>❄️ In freezer</Text>
+                      </View>
+                    )}
                     {conflicts.length > 0 && (
                       <View style={styles.conflictWarning}>
                         <Ionicons
@@ -1100,6 +1116,19 @@ const styles = StyleSheet.create({
   conflictWarnText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  frozenBadge: {
+    marginTop: 4,
+    backgroundColor: '#E0F2FE',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  frozenBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#0284C7',
   },
   batchCookCard: {
     marginHorizontal: 16,

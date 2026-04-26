@@ -248,6 +248,11 @@ export default function ShoppingScreen(): React.ReactElement {
     }
   }, [sections, checkedItems, totalCost]);
 
+  const removeManualItem = useCallback((ingredientId: string) => {
+    setManualItems((prev) => prev.filter((i) => i.ingredientId !== ingredientId));
+    setCheckedItems((prev) => { const next = new Set(prev); next.delete(ingredientId); return next; });
+  }, []);
+
   const renderItem = useCallback(
     ({ item }: { item: ShoppingListItem }) => {
       const isChecked = checkedItems.has(item.ingredientId);
@@ -287,11 +292,21 @@ export default function ShoppingScreen(): React.ReactElement {
               price={item.cheapestPrice > 0 ? item.cheapestPrice : undefined}
               small
             />
+            {item.isAdHoc && (
+              <Pressable
+                onPress={() => removeManualItem(item.ingredientId)}
+                style={styles.removeManualBtn}
+                accessibilityLabel={`Remove ${item.ingredientName}`}
+                hitSlop={8}
+              >
+                <Ionicons name="close-circle" size={18} color="#C0392B" />
+              </Pressable>
+            )}
           </View>
         </Pressable>
       );
     },
-    [checkedItems, toggleChecked],
+    [checkedItems, toggleChecked, removeManualItem],
   );
 
   return (
@@ -633,6 +648,9 @@ const styles = StyleSheet.create({
   itemRight: {
     alignItems: 'flex-end',
     gap: 4,
+  },
+  removeManualBtn: {
+    marginTop: 4,
   },
   footer: {
     paddingHorizontal: 16,

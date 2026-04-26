@@ -44,6 +44,7 @@ export default function RecipeDetailScreen() {
 
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [dayPickerMode, setDayPickerMode] = useState<'plan' | 'batchcook'>('plan');
+  const [expandedPrices, setExpandedPrices] = useState<Set<string>>(new Set());
 
   const recipe = getRecipeById(id ?? '');
 
@@ -133,6 +134,11 @@ export default function RecipeDetailScreen() {
     const scaledCost = cheapestPrice * ((ri.quantityPer4 * scale) / ingredient.baseQuantityPer4);
     const deals = getDealsForIngredient(ri.ingredientId);
     const deal = deals[0] ?? null;
+    const allPrices = ingredient.prices.map((p) => ({
+      supermarket: p.supermarket,
+      price: p.pricePerUnit * ((ri.quantityPer4 * scale) / ingredient.baseQuantityPer4),
+      unitLabel: p.unitLabel,
+    })).sort((a, b) => a.price - b.price);
     return {
       ingredientId: ri.ingredientId,
       ingredientName: ingredient.name,
@@ -144,6 +150,7 @@ export default function RecipeDetailScreen() {
       cheapestPrice: scaledCost,
       onOffer: deal !== null,
       dealLabel: deal?.dealLabel ?? '',
+      allPrices,
     };
   }).filter((r): r is NonNullable<typeof r> => r !== null);
   const nutrition = calculateRecipeNutrition(recipe, familySize);
@@ -216,33 +223,69 @@ export default function RecipeDetailScreen() {
 
           {/* Cost Breakdown */}
           <Text style={styles.sectionHeader}>Ingredient Cost Breakdown</Text>
-          {ingredientBreakdown.map((row) => (
-            <View key={row.ingredientId} style={styles.ingredientRow}>
-              <View style={styles.ingredientLeft}>
-                <Text style={styles.ingredientName}>{row.ingredientName}</Text>
-                <Text style={styles.ingredientQty}>{row.scaledQuantity} {row.unit}</Text>
-                {row.allergens.length > 0 && (
-                  <View style={styles.allergenDots}>
-                    {row.allergens.slice(0, 3).map((a) => (
-                      <AllergenChip key={a} allergen={a as Allergen} small />
+          {ingredientBreakdown.map((row) => {
+            const isPriceExpanded = expandedPrices.has(row.ingredientId);
+            return (
+              <View key={row.ingredientId} style={styles.ingredientRow}>
+                <View style={styles.ingredientLeft}>
+                  <Text style={styles.ingredientName}>{row.ingredientName}</Text>
+                  <Text style={styles.ingredientQty}>{row.scaledQuantity} {row.unit}</Text>
+                  {row.allergens.length > 0 && (
+                    <View style={styles.allergenDots}>
+                      {row.allergens.slice(0, 3).map((a) => (
+                        <AllergenChip key={a} allergen={a as Allergen} small />
+                      ))}
+                    </View>
+                  )}
+                </View>
+                <View style={styles.ingredientRight}>
+                  {row.inPantry ? (
+                    <Text style={styles.inPantryText}>✓ In Pantry</Text>
+                  ) : (
+                    <>
+                      <SupermarketChip supermarket={row.cheapestSupermarket} price={row.cheapestPrice} small />
+                      {row.onOffer && (
+                        <Text style={styles.dealText}>🏷 {row.dealLabel}</Text>
+                      )}
+                      {row.allPrices.length > 1 && (
+                        <Pressable
+                          onPress={() => {
+                            setExpandedPrices((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(row.ingredientId)) next.delete(row.ingredientId);
+                              else next.add(row.ingredientId);
+                              return next;
+                            });
+                          }}
+                          hitSlop={8}
+                        >
+                          <Text style={styles.allPricesToggle}>
+                            {isPriceExpanded ? '▲ Hide' : '▼ All prices'}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </>
+                  )}
+                </View>
+                {isPriceExpanded && !row.inPantry && (
+                  <View style={styles.allPricesGrid}>
+                    {row.allPrices.map((p) => (
+                      <View key={p.supermarket} style={[
+                        styles.priceGridRow,
+                        p.supermarket === row.cheapestSupermarket && styles.priceGridRowCheapest,
+                      ]}>
+                        <Text style={styles.priceGridSm}>{p.supermarket}</Text>
+                        <Text style={styles.priceGridPrice}>£{p.price.toFixed(2)}</Text>
+                        {p.supermarket === row.cheapestSupermarket && (
+                          <Text style={styles.priceGridBest}>best</Text>
+                        )}
+                      </View>
                     ))}
                   </View>
                 )}
               </View>
-              <View style={styles.ingredientRight}>
-                {row.inPantry ? (
-                  <Text style={styles.inPantryText}>✓ In Pantry</Text>
-                ) : (
-                  <>
-                    <SupermarketChip supermarket={row.cheapestSupermarket} price={row.cheapestPrice} small />
-                    {row.onOffer && (
-                      <Text style={styles.dealText}>🏷 {row.dealLabel}</Text>
-                    )}
-                  </>
-                )}
-              </View>
-            </View>
-          ))}
+            );
+          })}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>£{totalCost.toFixed(2)}</Text>
@@ -446,6 +489,20 @@ const styles = StyleSheet.create({
   ingredientRight: { alignItems: 'flex-end', gap: 4 },
   inPantryText: { color: '#8FAF7E', fontWeight: '700', fontSize: 12 },
   dealText: { color: '#8FAF7E', fontSize: 11, fontWeight: '600' },
+  allPricesToggle: { fontSize: 10, color: '#6B7280', fontWeight: '600', textDecorationLine: 'underline' },
+  allPricesGrid: {
+    width: '100%', marginTop: 8, backgroundColor: '#F9FAFB',
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, gap: 4,
+  },
+  priceGridRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 3,
+  },
+  priceGridRowCheapest: {
+    backgroundColor: '#F0FBF0', borderRadius: 4, paddingHorizontal: 4,
+  },
+  priceGridSm: { flex: 1, fontSize: 12, color: '#374151' },
+  priceGridPrice: { fontSize: 12, fontWeight: '700', color: '#1A2B4A', marginRight: 6 },
+  priceGridBest: { fontSize: 10, color: '#8FAF7E', fontWeight: '700' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#E5E7EB', marginTop: 4 },
   totalLabel: { fontSize: 15, fontWeight: '700', color: '#1A2B4A' },
   totalValue: { fontSize: 15, fontWeight: '700', color: '#1A2B4A' },

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, Pressable, FlatList, Modal,
   StyleSheet, ActivityIndicator, ScrollView, Alert,
@@ -29,8 +29,16 @@ export default function RecipeSearchScreen() {
   const [selected, setSelected] = useState<ExternalRecipe | null>(null);
   const [matched, setMatched] = useState<MatchedIngredient[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const { addImportedRecipe } = useRecipeDataStore();
   const { user } = useAuthStore();
+
+  useEffect(() => {
+    theMealDBService.getCategories().then((cats) => {
+      if (cats.length > 0) setCategories(cats);
+    }).catch(() => {});
+  }, []);
 
   const search = useCallback(async () => {
     if (!query.trim()) return;
@@ -59,6 +67,28 @@ export default function RecipeSearchScreen() {
       setIsLoading(false);
     }
   };
+
+  const handleBrowseCategory = useCallback(async (category: string) => {
+    if (activeCategory === category) {
+      setActiveCategory(null);
+      setResults([]);
+      setError(null);
+      return;
+    }
+    setActiveCategory(category);
+    setIsLoading(true);
+    setError(null);
+    setQuery('');
+    try {
+      const res = await theMealDBService.browseByCategory(category);
+      setResults(res);
+      if (res.length === 0) setError(`No ${category} recipes found.`);
+    } catch {
+      setError('Couldn\'t load category recipes. Check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCategory]);
 
   const openImport = (recipe: ExternalRecipe) => {
     const matchResults: MatchedIngredient[] = recipe.ingredients.map((ing) => {
@@ -150,6 +180,27 @@ export default function RecipeSearchScreen() {
             <Text style={styles.actionBtnText}>🎲 Random Recipe</Text>
           </Pressable>
         </View>
+
+        {categories.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryScroll}
+            contentContainerStyle={styles.categoryScrollContent}
+          >
+            {categories.map((cat) => (
+              <Pressable
+                key={cat}
+                onPress={() => handleBrowseCategory(cat)}
+                style={[styles.categoryChip, activeCategory === cat && styles.categoryChipActive]}
+              >
+                <Text style={[styles.categoryChipText, activeCategory === cat && styles.categoryChipTextActive]}>
+                  {cat}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
 
         {isLoading && <ActivityIndicator color="#E8A020" size="large" style={styles.loader} />}
         {error && !isLoading && (
@@ -266,4 +317,13 @@ const styles = StyleSheet.create({
   matchMeasure: { fontSize: 12, color: '#6B7280' },
   importBtn: { margin: 16, backgroundColor: '#E8A020', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   importBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  categoryScroll: { maxHeight: 44 },
+  categoryScrollContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingRight: 24 },
+  categoryChip: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+    backgroundColor: '#F3F4F6', borderWidth: 1.5, borderColor: '#E5E7EB',
+  },
+  categoryChipActive: { backgroundColor: '#1A2B4A', borderColor: '#1A2B4A' },
+  categoryChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  categoryChipTextActive: { color: '#FFFFFF' },
 });
