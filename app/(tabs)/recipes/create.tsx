@@ -90,11 +90,25 @@ export default function CreateRecipeScreen() {
   const removeIngredient = (i: number) => setIngredientRows((r) => r.filter((_, idx) => idx !== i));
   const updateIngredient = (i: number, field: keyof IngredientRow, val: string) =>
     setIngredientRows((r) => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
+  const moveIngredient = (i: number, dir: -1 | 1) => setIngredientRows((r) => {
+    const next = [...r];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return r;
+    [next[i], next[j]] = [next[j], next[i]];
+    return next;
+  });
 
   const addStep = () => setStepRows((r) => [...r, { instruction: '', duration: '', tip: '' }]);
   const removeStep = (i: number) => setStepRows((r) => r.filter((_, idx) => idx !== i));
   const updateStep = (i: number, field: keyof StepRow, val: string) =>
     setStepRows((r) => r.map((row, idx) => idx === i ? { ...row, [field]: val } : row));
+  const moveStep = (i: number, dir: -1 | 1) => setStepRows((r) => {
+    const next = [...r];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return r;
+    [next[i], next[j]] = [next[j], next[i]];
+    return next;
+  });
 
   const handleSave = async () => {
     if (!name.trim()) { Alert.alert('Error', 'Recipe name is required.'); return; }
@@ -261,6 +275,14 @@ export default function CreateRecipeScreen() {
         <SectionHeader title="Ingredients *" />
         {ingredientRows.map((row, i) => (
           <View key={i} style={styles.dynamicRow}>
+            <View style={styles.reorderBtns}>
+              <Pressable onPress={() => moveIngredient(i, -1)} disabled={i === 0} style={styles.reorderBtn}>
+                <Ionicons name="chevron-up" size={16} color={i === 0 ? '#D1D5DB' : '#6B7280'} />
+              </Pressable>
+              <Pressable onPress={() => moveIngredient(i, 1)} disabled={i === ingredientRows.length - 1} style={styles.reorderBtn}>
+                <Ionicons name="chevron-down" size={16} color={i === ingredientRows.length - 1 ? '#D1D5DB' : '#6B7280'} />
+              </Pressable>
+            </View>
             <TextInput style={[styles.input, styles.flex2]} value={row.name} onChangeText={(v) => updateIngredient(i, 'name', v)} placeholder="Ingredient" />
             <TextInput style={[styles.input, styles.flex1]} value={row.quantity} onChangeText={(v) => updateIngredient(i, 'quantity', v)} placeholder="Qty" keyboardType="decimal-pad" />
             <TextInput style={[styles.input, styles.flex1]} value={row.unit} onChangeText={(v) => updateIngredient(i, 'unit', v)} placeholder="Unit" />
@@ -279,9 +301,17 @@ export default function CreateRecipeScreen() {
           <View key={i} style={styles.stepCard}>
             <View style={styles.stepCardHeader}>
               <View style={styles.stepNumCircle}><Text style={styles.stepNumText}>{i + 1}</Text></View>
-              <Pressable onPress={() => removeStep(i)} style={styles.removeBtn}>
-                <Ionicons name="close-circle" size={22} color="#C0392B" />
-              </Pressable>
+              <View style={styles.stepHeaderActions}>
+                <Pressable onPress={() => moveStep(i, -1)} disabled={i === 0} style={styles.reorderBtn}>
+                  <Ionicons name="chevron-up" size={16} color={i === 0 ? '#D1D5DB' : '#6B7280'} />
+                </Pressable>
+                <Pressable onPress={() => moveStep(i, 1)} disabled={i === stepRows.length - 1} style={styles.reorderBtn}>
+                  <Ionicons name="chevron-down" size={16} color={i === stepRows.length - 1 ? '#D1D5DB' : '#6B7280'} />
+                </Pressable>
+                <Pressable onPress={() => removeStep(i)} style={styles.removeBtn}>
+                  <Ionicons name="close-circle" size={22} color="#C0392B" />
+                </Pressable>
+              </View>
             </View>
             <TextInput
               style={[styles.input, styles.multiline]}
@@ -368,6 +398,9 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   switchLabel: { fontSize: 15, color: '#1A2B4A', fontWeight: '500' },
+  reorderBtns: { justifyContent: 'center', gap: 0 },
+  reorderBtn: { padding: 2 },
+  stepHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   photoRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   photoBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#EEF1F7', borderRadius: 10, paddingVertical: 12 },
   photoBtnText: { color: '#1A2B4A', fontWeight: '600', fontSize: 14 },

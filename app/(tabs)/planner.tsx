@@ -26,7 +26,7 @@ import { calculateWeeklyNutrition } from '../../src/utils/nutrition';
 import { checkAllergenConflicts } from '../../src/utils/allergens';
 import FamilySizeSelector from '../../src/components/FamilySizeSelector';
 import CostBadge from '../../src/components/CostBadge';
-import { ingredients } from '../../src/data/ingredients';
+import { ingredients, getIngredientById } from '../../src/data/ingredients';
 import { AnyRecipe, WeeklyMealPlan, MealPlanTemplate } from '../../src/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -115,6 +115,7 @@ export default function PlannerScreen(): React.ReactElement {
   const [cheaperSuggestions, setCheaperSuggestions] = useState<
     { day: MealDay; current: AnyRecipe; suggestion: AnyRecipe; saving: number }[]
   >([]);
+  const [showBatchIngredients, setShowBatchIngredients] = useState(false);
 
   const plans = useMealPlanStore((s) => s.plans);
   const setMeal = useMealPlanStore((s) => s.setMeal);
@@ -164,6 +165,25 @@ export default function PlannerScreen(): React.ReactElement {
   const batchCookRecipes = useMemo<AnyRecipe[]>(() => {
     return weekRecipes.filter((r) => r.freezerFriendly);
   }, [weekRecipes]);
+
+  // Consolidated ingredient list for all batch cook recipes (×2 portions)
+  const batchCookIngredients = useMemo<{ name: string; qty: number; unit: string }[]>(() => {
+    const scale = (familySize / 4) * 2; // ×2 for batch
+    const acc = new Map<string, { name: string; qty: number; unit: string }>();
+    for (const recipe of batchCookRecipes) {
+      for (const ri of recipe.ingredients) {
+        const ingredient = getIngredientById(ri.ingredientId);
+        const name = ingredient?.name ?? ri.ingredientId;
+        const existing = acc.get(ri.ingredientId);
+        if (existing) {
+          existing.qty += ri.quantityPer4 * scale;
+        } else {
+          acc.set(ri.ingredientId, { name, qty: ri.quantityPer4 * scale, unit: ri.unit });
+        }
+      }
+    }
+    return Array.from(acc.values()).map((i) => ({ ...i, qty: Math.ceil(i.qty) }));
+  }, [batchCookRecipes, familySize]);
 
   const handleOpenAddMeal = useCallback((day: string) => {
     setSelectedDay(day);
@@ -582,6 +602,29 @@ export default function PlannerScreen(): React.ReactElement {
                 </View>
               );
             })}
+            <Pressable
+              onPress={() => setShowBatchIngredients((v) => !v)}
+              style={styles.batchIngrBtn}
+            >
+              <Ionicons
+                name={showBatchIngredients ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color="#1A2B4A"
+              />
+              <Text style={styles.batchIngrBtnText}>
+                {showBatchIngredients ? 'Hide' : 'Show'} batch cook ingredients ({batchCookIngredients.length})
+              </Text>
+            </Pressable>
+            {showBatchIngredients && (
+              <View style={styles.batchIngrList}>
+                {batchCookIngredients.map((item) => (
+                  <View key={item.name} style={styles.batchIngrRow}>
+                    <Text style={styles.batchIngrName}>{item.name}</Text>
+                    <Text style={styles.batchIngrQty}>{item.qty} {item.unit}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -1114,6 +1157,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#8FAF7E',
+  },
+  batchIngrBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    marginTop: 8,
+  },
+  batchIngrBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A2B4A',
+  },
+  batchIngrList: {
+    gap: 6,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  batchIngrRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  batchIngrName: {
+    fontSize: 13,
+    color: '#1A2B4A',
+    flex: 1,
+  },
+  batchIngrQty: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
   },
   importScroll: {
     flex: 1,

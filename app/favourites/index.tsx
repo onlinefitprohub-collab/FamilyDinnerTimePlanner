@@ -129,6 +129,7 @@ export default function FavouritesScreen(): React.ReactElement {
             onPress={() => router.push(`/recipe/${item.id}` as Parameters<typeof router.push>[0])}
             onFavouriteToggle={() => void toggleFavourite(item.id)}
             isFavourite={favourites[item.id] === true}
+            rating={ratings[item.id]}
           />
         )}
         ListEmptyComponent={
