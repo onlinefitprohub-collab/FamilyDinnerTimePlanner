@@ -266,7 +266,66 @@ export default function BudgetScreen(): React.ReactElement {
           <Text style={styles.progressLabel}>
             {budgetPercent.toFixed(0)}% of budget used
           </Text>
+
+          {/* Budget alert */}
+          {weeklyBudget > 0 && budgetPercent > 80 && (
+            <View style={[
+              styles.alertBanner,
+              budgetPercent > 100 ? styles.alertDanger : styles.alertWarning,
+            ]}>
+              <Ionicons
+                name={budgetPercent > 100 ? 'alert-circle' : 'warning-outline'}
+                size={16}
+                color={budgetPercent > 100 ? '#C0392B' : '#92400E'}
+              />
+              <Text style={[
+                styles.alertText,
+                budgetPercent > 100 ? styles.alertTextDanger : styles.alertTextWarning,
+              ]}>
+                {budgetPercent > 100
+                  ? `£${(totalSpend - weeklyBudget).toFixed(2)} over budget this week`
+                  : `Getting close — £${(weeklyBudget - totalSpend).toFixed(2)} remaining`}
+              </Text>
+            </View>
+          )}
         </View>
+
+        {/* Per-recipe breakdown */}
+        {recipeWithCosts.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Meal Breakdown</Text>
+            {recipeWithCosts.map(({ recipe, cost, costPerPerson }) => (
+              <View key={recipe.id} style={styles.mealBreakdownRow}>
+                <View style={styles.mealNameRow}>
+                  <Text style={styles.mealBreakdownName} numberOfLines={1}>{recipe.name}</Text>
+                  <View style={styles.mealBreakdownCosts}>
+                    <Text style={styles.mealBreakdownTotal}>£{cost.toFixed(2)}</Text>
+                    <Text style={styles.mealBreakdownPp}>£{costPerPerson.toFixed(2)}pp</Text>
+                  </View>
+                </View>
+                <View style={styles.mealBarTrack}>
+                  <View
+                    style={[
+                      styles.mealBarFill,
+                      {
+                        width: `${totalSpend > 0 ? (cost / totalSpend) * 100 : 0}%` as `${number}%`,
+                        backgroundColor: cost === (cheapest?.cost ?? -1) && recipeWithCosts.length > 1
+                          ? '#8FAF7E'
+                          : cost === (mostExpensive?.cost ?? -1) && recipeWithCosts.length > 1
+                          ? '#C0392B'
+                          : '#4A90D9',
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            ))}
+            <View style={styles.mealBreakdownFooter}>
+              <Text style={styles.mealBreakdownFooterLabel}>Total</Text>
+              <Text style={styles.mealBreakdownFooterValue}>£{totalSpend.toFixed(2)}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Insights */}
         <View style={styles.card}>
@@ -531,6 +590,91 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  alertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 10,
+    padding: 10,
+  },
+  alertWarning: {
+    backgroundColor: '#FEF3C7',
+  },
+  alertDanger: {
+    backgroundColor: '#FEE2E2',
+  },
+  alertText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  alertTextWarning: {
+    color: '#92400E',
+  },
+  alertTextDanger: {
+    color: '#C0392B',
+  },
+  mealBreakdownRow: {
+    gap: 4,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  mealNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mealBarTrack: {
+    height: 3,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  mealBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  mealBreakdownName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A2B4A',
+    flex: 1,
+    flexShrink: 1,
+  },
+  mealBreakdownCosts: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  mealBreakdownTotal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A2B4A',
+  },
+  mealBreakdownPp: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    minWidth: 54,
+    textAlign: 'right',
+  },
+  mealBreakdownFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    marginTop: 2,
+  },
+  mealBreakdownFooterLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  mealBreakdownFooterValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1A2B4A',
   },
   insightText: {
     fontSize: 14,

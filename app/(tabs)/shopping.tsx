@@ -309,6 +309,10 @@ export default function ShoppingScreen(): React.ReactElement {
     [checkedItems, toggleChecked, removeManualItem],
   );
 
+  const checkedCount = shoppingList.filter((item) => checkedItems.has(item.ingredientId)).length;
+  const totalItemCount = shoppingList.length;
+  const checkPercent = totalItemCount > 0 ? (checkedCount / totalItemCount) * 100 : 0;
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Cost banner */}
@@ -316,6 +320,21 @@ export default function ShoppingScreen(): React.ReactElement {
         <Text style={styles.costBannerText}>
           Estimated Total: £{totalCost.toFixed(2)}
         </Text>
+        {totalItemCount > 0 && (
+          <View style={styles.checkProgressRow}>
+            <View style={styles.checkProgressBg}>
+              <View
+                style={[
+                  styles.checkProgressFill,
+                  { width: `${checkPercent}%` as `${number}%` },
+                ]}
+              />
+            </View>
+            <Text style={styles.checkProgressText}>
+              {checkedCount} / {totalItemCount} checked
+            </Text>
+          </View>
+        )}
         {frozenMealsDeducted > 0 && (
           <Text style={styles.costBannerSub}>
             ❄️ {frozenMealsDeducted} frozen meal{frozenMealsDeducted !== 1 ? 's' : ''} deducted
@@ -495,6 +514,32 @@ const styles = StyleSheet.create({
     color: '#A5C8FF',
     fontSize: 12,
     marginTop: 2,
+  },
+  checkProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+    width: '100%',
+  },
+  checkProgressBg: {
+    flex: 1,
+    height: 5,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  checkProgressFill: {
+    height: '100%',
+    backgroundColor: '#8FAF7E',
+    borderRadius: 3,
+  },
+  checkProgressText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.75)',
+    minWidth: 70,
+    textAlign: 'right',
   },
   extrasBanner: {
     flexDirection: 'row',
