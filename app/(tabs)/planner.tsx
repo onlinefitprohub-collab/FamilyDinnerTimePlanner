@@ -135,6 +135,8 @@ export default function PlannerScreen(): React.ReactElement {
   const templates = useTemplatesStore((s) => s.templates);
   const saveTemplate = useTemplatesStore((s) => s.saveTemplate);
   const loadTemplate = useTemplatesStore((s) => s.loadTemplate);
+  const deleteTemplate = useTemplatesStore((s) => s.deleteTemplate);
+  const renameTemplate = useTemplatesStore((s) => s.renameTemplate);
 
   const { recipes: allRecipes } = useRecipeLibrary();
   const freezerItems = useFreezerStore((s) => s.items);
@@ -354,6 +356,47 @@ export default function PlannerScreen(): React.ReactElement {
       setShowTemplateModal(false);
     },
     [currentWeekKey, loadTemplate, setMeal],
+  );
+
+  const handleTemplateOptions = useCallback(
+    (template: MealPlanTemplate) => {
+      Alert.alert(template.name, undefined, [
+        {
+          text: 'Rename',
+          onPress: () => {
+            if (Platform.OS === 'ios') {
+              Alert.prompt(
+                'Rename Template',
+                'Enter a new name:',
+                (newName) => {
+                  if (newName?.trim()) void renameTemplate(template.id, newName.trim());
+                },
+                'plain-text',
+                template.name,
+              );
+            } else {
+              Alert.alert('Rename Template', `Current name: "${template.name}"\nRenaming is only supported on iOS prompt. Edit templates in app settings.`);
+            }
+          },
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Delete Template',
+              `Delete "${template.name}"? This cannot be undone.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => void deleteTemplate(template.id) },
+              ],
+            );
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    },
+    [deleteTemplate, renameTemplate],
   );
 
   const handleCopyLastWeek = useCallback(() => {
@@ -888,6 +931,13 @@ export default function PlannerScreen(): React.ReactElement {
                       : ''}
                   </Text>
                 </View>
+                <Pressable
+                  onPress={() => handleTemplateOptions(item)}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.templateOptionsBtn, pressed && { opacity: 0.5 }]}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={18} color="#6B7280" />
+                </Pressable>
               </Pressable>
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -1446,6 +1496,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
+  },
+  templateOptionsBtn: {
+    padding: 8,
   },
   separator: {
     height: 1,

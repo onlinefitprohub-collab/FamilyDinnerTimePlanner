@@ -139,6 +139,7 @@ export interface FamilyMember {
   userId: string;
   name: string;
   avatarEmoji: string;
+  avatarPhoto?: string;
   allergens: Allergen[];
   dislikes: string[];
   dietType: 'none' | 'vegetarian' | 'vegan' | 'gluten-free' | 'dairy-free';

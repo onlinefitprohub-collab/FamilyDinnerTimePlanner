@@ -8,20 +8,33 @@ import { useRecipeLibrary } from '../../../src/hooks/useRecipeLibrary';
 
 function useCountdown(seconds: number) {
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const start = useCallback(() => {
     setRemaining(seconds);
+    setPaused(false);
   }, [seconds]);
+
+  const pause = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    setPaused(true);
+  }, []);
+
+  const resume = useCallback(() => {
+    setPaused(false);
+  }, []);
 
   const reset = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
     setRemaining(null);
+    setPaused(false);
   }, []);
 
   useEffect(() => {
-    if (remaining === null) return;
+    if (remaining === null || paused) return;
     if (remaining <= 0) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -33,14 +46,22 @@ function useCountdown(seconds: number) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [remaining]);
+  }, [remaining, paused]);
 
-  // Reset timer when target seconds changes (step changed)
   useEffect(() => {
     reset();
   }, [seconds, reset]);
 
-  return { remaining, start, reset, isRunning: remaining !== null && remaining > 0, isDone: remaining === 0 };
+  return {
+    remaining,
+    start,
+    pause,
+    resume,
+    reset,
+    isRunning: remaining !== null && remaining > 0 && !paused,
+    isPaused: remaining !== null && remaining > 0 && paused,
+    isDone: remaining === 0,
+  };
 }
 
 function formatTime(secs: number): string {
@@ -131,21 +152,43 @@ export default function CookingModeScreen() {
               <Text style={[
                 styles.timerDisplay,
                 timer.isDone && styles.timerDone,
+                timer.isPaused && styles.timerPaused,
               ]}>
                 {timer.isDone ? '✓ Done!' : timerDisplay}
               </Text>
+              {timer.isPaused && (
+                <Text style={styles.pausedLabel}>PAUSED</Text>
+              )}
               <View style={styles.timerBtns}>
-                {!timer.isRunning && !timer.isDone && (
+                {!timer.isRunning && !timer.isPaused && !timer.isDone && (
                   <Pressable onPress={timer.start} style={styles.timerStartBtn}>
                     <Ionicons name="play" size={16} color="#1A2B4A" />
                     <Text style={styles.timerStartText}>Start Timer</Text>
                   </Pressable>
                 )}
                 {timer.isRunning && (
-                  <Pressable onPress={timer.reset} style={styles.timerResetBtn}>
-                    <Ionicons name="stop" size={16} color="rgba(255,255,255,0.8)" />
-                    <Text style={styles.timerResetText}>Stop</Text>
-                  </Pressable>
+                  <>
+                    <Pressable onPress={timer.pause} style={styles.timerStartBtn}>
+                      <Ionicons name="pause" size={16} color="#1A2B4A" />
+                      <Text style={styles.timerStartText}>Pause</Text>
+                    </Pressable>
+                    <Pressable onPress={timer.reset} style={styles.timerResetBtn}>
+                      <Ionicons name="stop" size={16} color="rgba(255,255,255,0.8)" />
+                      <Text style={styles.timerResetText}>Stop</Text>
+                    </Pressable>
+                  </>
+                )}
+                {timer.isPaused && (
+                  <>
+                    <Pressable onPress={timer.resume} style={styles.timerStartBtn}>
+                      <Ionicons name="play" size={16} color="#1A2B4A" />
+                      <Text style={styles.timerStartText}>Resume</Text>
+                    </Pressable>
+                    <Pressable onPress={timer.reset} style={styles.timerResetBtn}>
+                      <Ionicons name="stop" size={16} color="rgba(255,255,255,0.8)" />
+                      <Text style={styles.timerResetText}>Stop</Text>
+                    </Pressable>
+                  </>
                 )}
                 {timer.isDone && (
                   <Pressable onPress={timer.reset} style={styles.timerResetBtn}>
@@ -201,6 +244,8 @@ const styles = StyleSheet.create({
   timerBlock: { alignItems: 'center', gap: 10 },
   timerDisplay: { fontSize: 48, fontWeight: '800', color: '#E8A020', letterSpacing: 2, fontVariant: ['tabular-nums'] },
   timerDone: { color: '#8FAF7E', fontSize: 32 },
+  timerPaused: { opacity: 0.5 },
+  pausedLabel: { color: '#E8A020', fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   timerBtns: { flexDirection: 'row', gap: 10 },
   timerStartBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8A020', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
   timerStartText: { color: '#1A2B4A', fontWeight: '700', fontSize: 14 },

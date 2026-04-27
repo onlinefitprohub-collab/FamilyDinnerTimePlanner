@@ -10,7 +10,10 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { useFamilyStore } from '../../src/stores/useFamilyStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { FamilyMember, Allergen } from '../../src/types';
@@ -54,6 +57,7 @@ const ALLERGEN_LABELS: Record<Allergen, string> = {
 interface FormState {
   name: string;
   avatarEmoji: string;
+  avatarPhoto?: string;
   dietType: FamilyMember['dietType'];
   allergens: Allergen[];
   dislikes: string;
@@ -62,6 +66,7 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   name: '',
   avatarEmoji: '🧑',
+  avatarPhoto: undefined,
   dietType: 'none',
   allergens: [],
   dislikes: '',
@@ -71,6 +76,7 @@ function memberToForm(member: FamilyMember): FormState {
   return {
     name: member.name,
     avatarEmoji: member.avatarEmoji,
+    avatarPhoto: member.avatarPhoto,
     dietType: member.dietType,
     allergens: [...member.allergens],
     dislikes: member.dislikes.join(', '),
@@ -120,6 +126,7 @@ export default function FamilyScreen(): React.ReactElement {
       void updateMember(editingMember.id, {
         name: form.name.trim(),
         avatarEmoji: form.avatarEmoji,
+        avatarPhoto: form.avatarPhoto,
         dietType: form.dietType,
         allergens: form.allergens,
         dislikes: dislikesArr,
@@ -129,6 +136,7 @@ export default function FamilyScreen(): React.ReactElement {
         userId: user.id,
         name: form.name.trim(),
         avatarEmoji: form.avatarEmoji,
+        avatarPhoto: form.avatarPhoto,
         dietType: form.dietType,
         allergens: form.allergens,
         dislikes: dislikesArr,
@@ -155,6 +163,27 @@ export default function FamilyScreen(): React.ReactElement {
     [removeMember],
   );
 
+  const handlePickPhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Allow photo access in Settings to choose a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setForm((p) => ({ ...p, avatarPhoto: result.assets[0]!.uri }));
+    }
+  }, []);
+
+  const handleRemovePhoto = useCallback(() => {
+    setForm((p) => ({ ...p, avatarPhoto: undefined }));
+  }, []);
+
   const toggleAllergen = useCallback((allergen: Allergen) => {
     setForm((prev) => {
       const has = prev.allergens.includes(allergen);
@@ -169,7 +198,11 @@ export default function FamilyScreen(): React.ReactElement {
 
   const renderMember = ({ item }: { item: FamilyMember }) => (
     <View style={styles.memberCard}>
-      <Text style={styles.memberAvatar}>{item.avatarEmoji}</Text>
+      {item.avatarPhoto ? (
+        <Image source={{ uri: item.avatarPhoto }} style={styles.memberAvatarPhoto} />
+      ) : (
+        <Text style={styles.memberAvatar}>{item.avatarEmoji}</Text>
+      )}
       <View style={styles.memberInfo}>
         <Text style={styles.memberName}>{item.name}</Text>
         {item.dietType !== 'none' && (
@@ -274,6 +307,30 @@ export default function FamilyScreen(): React.ReactElement {
 
             {/* Avatar */}
             <Text style={styles.formLabel}>Avatar</Text>
+
+            {/* Photo picker */}
+            <View style={styles.photoPickerRow}>
+              {form.avatarPhoto ? (
+                <View style={styles.photoPreviewWrap}>
+                  <Image source={{ uri: form.avatarPhoto }} style={styles.photoPreview} />
+                  <Pressable onPress={handleRemovePhoto} style={styles.photoRemoveBtn} hitSlop={8}>
+                    <Ionicons name="close-circle" size={20} color="#C0392B" />
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => void handlePickPhoto()}
+                  style={({ pressed }) => [styles.pickPhotoBtn, pressed && { opacity: 0.75 }]}
+                >
+                  <Ionicons name="camera-outline" size={20} color="#1A2B4A" />
+                  <Text style={styles.pickPhotoBtnText}>Choose Photo</Text>
+                </Pressable>
+              )}
+              <Text style={styles.photoOrLabel}>
+                {form.avatarPhoto ? 'Photo selected · or pick an emoji below' : 'or choose an emoji:'}
+              </Text>
+            </View>
+
             <FlatList
               data={AVATAR_OPTIONS}
               keyExtractor={(item) => item}
@@ -402,6 +459,11 @@ const styles = StyleSheet.create({
   memberAvatar: {
     fontSize: 40,
     lineHeight: 48,
+  },
+  memberAvatarPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   memberInfo: {
     flex: 1,
@@ -562,6 +624,49 @@ const styles = StyleSheet.create({
   formInputMultiline: {
     minHeight: 72,
     textAlignVertical: 'top',
+  },
+  photoPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  photoPreviewWrap: {
+    position: 'relative',
+  },
+  photoPreview: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: '#E8A020',
+  },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
+  pickPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EEF1F7',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  pickPhotoBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A2B4A',
+  },
+  photoOrLabel: {
+    flex: 1,
+    fontSize: 12,
+    color: '#9CA3AF',
+    lineHeight: 16,
   },
   avatarRow: {
     gap: 8,
