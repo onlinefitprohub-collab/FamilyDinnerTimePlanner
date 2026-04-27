@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  View, Text, ScrollView, Pressable, Modal, StyleSheet,
+  View, Text, ScrollView, Pressable, Modal, FlatList, StyleSheet,
   Alert, Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -32,7 +32,7 @@ const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sat
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getRecipeById } = useRecipeLibrary();
+  const { getRecipeById, recipes: allRecipes } = useRecipeLibrary();
   const { familySize } = useAuthStore();
   const { items: pantryItems } = usePantryStore();
   const { favourites, ratings, toggleFavourite, setRating } = useFavouritesStore();
@@ -115,6 +115,11 @@ export default function RecipeDetailScreen() {
     setDayPickerMode(mode);
     setShowDayPicker(true);
   };
+
+  const relatedRecipes = useMemo(
+    () => allRecipes.filter((r) => r.id !== recipe.id && r.category === recipe.category).slice(0, 8),
+    [allRecipes, recipe.id, recipe.category],
+  );
 
   const isFav = favourites[recipe.id] ?? false;
   const myRating = ratings[recipe.id] ?? 0;
@@ -379,6 +384,38 @@ export default function RecipeDetailScreen() {
             <Text style={styles.cookingBtnText}>Start Cooking</Text>
           </Pressable>
         </View>
+
+        {/* Related recipes */}
+        {relatedRecipes.length > 0 && (
+          <View style={styles.relatedSection}>
+            <Text style={styles.relatedTitle}>More {recipe.category} recipes</Text>
+            <FlatList
+              data={relatedRecipes}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.relatedList}
+              renderItem={({ item }) => {
+                const itemCost = calculateRecipeCost(item, allIngredients, familySize);
+                const itemCpp = familySize > 0 ? itemCost / familySize : 0;
+                return (
+                  <Pressable
+                    onPress={() => router.push(`/recipe/${item.id}` as Parameters<typeof router.push>[0])}
+                    style={({ pressed }) => [styles.relatedCard, pressed && { opacity: 0.85 }]}
+                  >
+                    <Image source={{ uri: item.image }} style={styles.relatedImage} contentFit="cover" />
+                    <View style={styles.relatedInfo}>
+                      <Text style={styles.relatedName} numberOfLines={2}>{item.name}</Text>
+                      <Text style={styles.relatedMeta}>
+                        {item.prepTime + item.cookTime}m · £{itemCpp.toFixed(2)}pp
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        )}
       </ScrollView>
 
       {/* Sticky bottom bar */}
@@ -573,4 +610,21 @@ const styles = StyleSheet.create({
   dayRowExistingCurrent: { fontSize: 11, color: '#8FAF7E', marginTop: 1, fontWeight: '600' },
   cancelBtn: { marginTop: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 12 },
   cancelBtnText: { fontSize: 15, color: '#6B7280', fontWeight: '700' },
+  relatedSection: { paddingTop: 24, paddingBottom: 8 },
+  relatedTitle: { fontSize: 15, fontWeight: '700', color: '#1A2B4A', paddingHorizontal: 16, marginBottom: 12 },
+  relatedList: { paddingHorizontal: 16, gap: 12 },
+  relatedCard: {
+    width: 140,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  relatedImage: { width: '100%', height: 90 },
+  relatedInfo: { padding: 8, gap: 4 },
+  relatedName: { fontSize: 12, fontWeight: '700', color: '#1A2B4A', lineHeight: 16 },
+  relatedMeta: { fontSize: 11, color: '#9CA3AF' },
 });

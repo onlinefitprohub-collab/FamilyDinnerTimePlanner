@@ -4,9 +4,11 @@ import {
   Text,
   FlatList,
   Pressable,
+  TextInput,
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFavouritesStore } from '../../src/stores/useFavouritesStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
@@ -24,6 +26,7 @@ export default function FavouritesScreen(): React.ReactElement {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('favourites');
   const [sortBy, setSortBy] = useState<SortBy>('rating');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const favourites = useFavouritesStore((s) => s.favourites);
   const ratings = useFavouritesStore((s) => s.ratings);
@@ -55,17 +58,21 @@ export default function FavouritesScreen(): React.ReactElement {
     });
   };
 
+  const q = searchQuery.toLowerCase().trim();
+
   const favouriteRecipes = useMemo(() => {
-    const filtered = allRecipes.filter((r) => favourites[r.id] === true);
+    const filtered = allRecipes.filter(
+      (r) => favourites[r.id] === true && (q === '' || r.name.toLowerCase().includes(q)),
+    );
     return sortRecipes(filtered);
-  }, [allRecipes, favourites, sortBy, familySize]);
+  }, [allRecipes, favourites, sortBy, familySize, q]);
 
   const topRatedRecipes = useMemo(() => {
     const withRatings = allRecipes.filter(
-      (r) => ratings[r.id] !== undefined && ratings[r.id] > 0,
+      (r) => ratings[r.id] !== undefined && ratings[r.id] > 0 && (q === '' || r.name.toLowerCase().includes(q)),
     );
     return sortRecipes(withRatings);
-  }, [allRecipes, ratings, sortBy, familySize]);
+  }, [allRecipes, ratings, sortBy, familySize, q]);
 
   const displayRecipes = activeTab === 'favourites' ? favouriteRecipes : topRatedRecipes;
 
@@ -96,6 +103,25 @@ export default function FavouritesScreen(): React.ReactElement {
             Top Rated
           </Text>
         </Pressable>
+      </View>
+
+      {/* Search bar */}
+      <View style={styles.searchRow}>
+        <Ionicons name="search-outline" size={16} color="#9CA3AF" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search…"
+          placeholderTextColor="#9CA3AF"
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {searchQuery.length > 0 && (
+          <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+          </Pressable>
+        )}
       </View>
 
       {/* Sort controls */}
@@ -241,5 +267,22 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  searchIcon: { marginRight: 2 },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1A2B4A',
+    paddingVertical: 4,
   },
 });

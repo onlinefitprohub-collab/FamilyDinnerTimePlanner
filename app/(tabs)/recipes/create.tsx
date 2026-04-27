@@ -8,7 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRecipeDataStore } from '../../../src/stores/useRecipeDataStore';
 import { useAuthStore } from '../../../src/stores/useAuthStore';
-import { CustomRecipe, RecipeCategory } from '../../../src/types';
+import { CustomRecipe, RecipeCategory, Allergen } from '../../../src/types';
+import { ALLERGEN_LABELS } from '../../../src/utils/allergens';
 
 const CATEGORIES: RecipeCategory[] = ['pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill'];
 
@@ -44,6 +45,7 @@ export default function CreateRecipeScreen() {
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
+  const [selectedAllergens, setSelectedAllergens] = useState<Allergen[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -83,6 +85,7 @@ export default function CreateRecipeScreen() {
       setCarbs(String(recipe.nutritionPer4.carbs));
       setFat(String(recipe.nutritionPer4.fat));
     }
+    setSelectedAllergens(recipe.allergens ?? []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId]);
 
@@ -147,7 +150,7 @@ export default function CreateRecipeScreen() {
         fat: parseInt(fat) || 0,
       } : null,
       dietaryInfo: { vegetarian, vegan, glutenFree, dairyFree },
-      allergens: [],
+      allergens: selectedAllergens,
       freezerFriendly,
       batchCookNotes: freezerFriendly ? batchNotes : undefined,
       onePot,
@@ -256,6 +259,29 @@ export default function CreateRecipeScreen() {
             <TextInput style={[styles.input, styles.multiline]} value={batchNotes} onChangeText={setBatchNotes} multiline numberOfLines={2} placeholder="How to freeze, defrost, and reheat…" />
           </Field>
         )}
+
+        <SectionHeader title="Allergens" />
+        <Text style={styles.allergenHint}>Tick any allergens this recipe contains. This powers family safety warnings.</Text>
+        <View style={styles.allergenGrid}>
+          {(Object.entries(ALLERGEN_LABELS) as [Allergen, string][]).map(([key, label]) => {
+            const active = selectedAllergens.includes(key);
+            return (
+              <Pressable
+                key={key}
+                onPress={() =>
+                  setSelectedAllergens((prev) =>
+                    active ? prev.filter((a) => a !== key) : [...prev, key],
+                  )
+                }
+                style={[styles.allergenChip, active && styles.allergenChipActive]}
+              >
+                <Text style={[styles.allergenChipText, active && styles.allergenChipTextActive]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
         <SectionHeader title="Photo" />
         <View style={styles.photoRow}>
@@ -415,4 +441,10 @@ const styles = StyleSheet.create({
   addBtnText: { color: '#1A2B4A', fontWeight: '600', fontSize: 14 },
   saveBtn: { backgroundColor: '#E8A020', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 28 },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  allergenHint: { fontSize: 12, color: '#9CA3AF', marginBottom: 10 },
+  allergenGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  allergenChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' },
+  allergenChipActive: { backgroundColor: '#C0392B', borderColor: '#C0392B' },
+  allergenChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  allergenChipTextActive: { color: '#fff' },
 });
