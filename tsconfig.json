@@ -4,6 +4,7 @@
     "strict": true,
     "jsx": "react-native",
     "lib": ["DOM", "ESNext"],
+    "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

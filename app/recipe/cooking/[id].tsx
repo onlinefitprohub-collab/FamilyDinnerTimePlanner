@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { activateKeepAwakeAsync, deactivateKeepAwakeAsync } from 'expo-keep-awake';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 import { useRecipeLibrary } from '../../../src/hooks/useRecipeLibrary';
 
@@ -59,7 +59,7 @@ export default function CookingModeScreen() {
 
   useEffect(() => {
     activateKeepAwakeAsync();
-    return () => { deactivateKeepAwakeAsync(); };
+    return () => { void deactivateKeepAwake(); };
   }, []);
 
   const step = recipe?.steps[currentStep];

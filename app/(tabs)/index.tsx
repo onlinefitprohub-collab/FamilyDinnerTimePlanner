@@ -321,7 +321,7 @@ export default function HomeScreen(): React.ReactElement {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.seasonalRow}>
               {seasonalIngredients.map((ing) => (
-                <View key={ing.id ?? ing.name} style={styles.seasonalChip}>
+                <View key={ing.ingredientId ?? ing.name} style={styles.seasonalChip}>
                   <Text style={styles.seasonalChipText}>{ing.name}</Text>
                 </View>
               ))}

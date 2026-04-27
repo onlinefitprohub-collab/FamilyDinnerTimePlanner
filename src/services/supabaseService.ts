@@ -10,6 +10,7 @@ import {
   ImportedRecipe,
   CustomRecipe,
   ScanHistoryEntry,
+  Allergen,
 } from '../types';
 
 // ─── Profile ────────────────────────────────────────────────────────────────
@@ -279,7 +280,7 @@ export async function fetchFamilyMembers(userId: string): Promise<FamilyMember[]
     userId: row.user_id as string,
     name: row.name as string,
     avatarEmoji: row.avatar_emoji as string,
-    allergens: (row.allergens as string[]) ?? [],
+    allergens: (row.allergens as Allergen[]) ?? [],
     dislikes: (row.dislikes as string[]) ?? [],
     dietType: row.diet_type as FamilyMember['dietType'],
   }));

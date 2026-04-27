@@ -82,7 +82,7 @@ export default function RecipeCard({
           source={{ uri: recipe.image }}
           style={styles.image}
           contentFit="cover"
-          placeholder={{ color: '#E5E7EB' }}
+          placeholder={null}
           transition={200}
         />
         {/* Badges overlay */}
