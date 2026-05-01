@@ -22,6 +22,7 @@ import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useTemplatesStore } from '../../src/stores/useTemplatesStore';
 import { useFamilyStore } from '../../src/stores/useFamilyStore';
 import { useFreezerStore } from '../../src/stores/useFreezerStore';
+import { useDayNotesStore } from '../../src/stores/useDayNotesStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { calculateRecipeCost } from '../../src/utils/pricing';
 import { calculateWeeklyNutrition } from '../../src/utils/nutrition';
@@ -121,6 +122,13 @@ export default function PlannerScreen(): React.ReactElement {
   const [showBatchIngredients, setShowBatchIngredients] = useState(false);
   const [contextMenuDay, setContextMenuDay] = useState<string | null>(null);
   const [contextMenuRecipe, setContextMenuRecipe] = useState<AnyRecipe | null>(null);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteDay, setNoteDay] = useState<string>('monday');
+  const [noteDraft, setNoteDraft] = useState('');
+
+  const dayNotes = useDayNotesStore((s) => s.notes);
+  const setDayNote = useDayNotesStore((s) => s.setNote);
+  const clearDayNote = useDayNotesStore((s) => s.clearNote);
 
   const plans = useMealPlanStore((s) => s.plans);
   const setMeal = useMealPlanStore((s) => s.setMeal);
@@ -471,6 +479,25 @@ export default function PlannerScreen(): React.ReactElement {
     }
   }, [importJson, currentWeekKey, setMeal]);
 
+  const handleOpenNote = useCallback(
+    (day: string) => {
+      setNoteDay(day);
+      setNoteDraft(dayNotes[currentWeekKey]?.[day] ?? '');
+      setShowNoteModal(true);
+    },
+    [currentWeekKey, dayNotes],
+  );
+
+  const handleSaveNote = useCallback(() => {
+    const text = noteDraft.trim();
+    if (text) {
+      setDayNote(currentWeekKey, noteDay, text);
+    } else {
+      clearDayNote(currentWeekKey, noteDay);
+    }
+    setShowNoteModal(false);
+  }, [noteDraft, currentWeekKey, noteDay, setDayNote, clearDayNote]);
+
   const getBudgetBarColor = (): string => {
     if (budgetPercent < 80) return '#8FAF7E';
     if (budgetPercent <= 100) return '#E8A020';
@@ -525,6 +552,8 @@ export default function PlannerScreen(): React.ReactElement {
               : [];
             const hasDanger = conflicts.some((c) => c.conflictType === 'allergen' && c.allergens.length > 0);
             const isFrozen = recipe ? frozenRecipeIds.has(recipe.id) : false;
+
+            const dayNote = dayNotes[currentWeekKey]?.[day];
 
             return (
               <View key={day} style={styles.dayCard}>
@@ -581,6 +610,23 @@ export default function PlannerScreen(): React.ReactElement {
                     <Text style={styles.addMealText}>Add meal</Text>
                   </Pressable>
                 )}
+                <Pressable
+                  onPress={() => handleOpenNote(day)}
+                  style={({ pressed }) => [styles.dayNoteRow, pressed && { opacity: 0.7 }]}
+                  accessibilityLabel={dayNote ? `Note: ${dayNote}. Tap to edit.` : 'Add a note'}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={11}
+                    color={dayNote ? '#1A2B4A' : '#D1D5DB'}
+                  />
+                  <Text
+                    style={[styles.dayNoteText, !dayNote && styles.dayNoteTextEmpty]}
+                    numberOfLines={2}
+                  >
+                    {dayNote ?? 'Add note…'}
+                  </Text>
+                </Pressable>
               </View>
             );
           })}
@@ -947,6 +993,49 @@ export default function PlannerScreen(): React.ReactElement {
             contentContainerStyle={styles.recipeList}
           />
         </SafeAreaView>
+      </Modal>
+
+      {/* Day Note Modal */}
+      <Modal
+        visible={showNoteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNoteModal(false)}
+      >
+        <Pressable
+          style={styles.contextOverlay}
+          onPress={() => setShowNoteModal(false)}
+        >
+          <Pressable style={styles.noteSheet} onPress={() => {}}>
+            <Text style={styles.noteSheetTitle}>
+              Note for {noteDay.charAt(0).toUpperCase() + noteDay.slice(1)}
+            </Text>
+            <TextInput
+              style={styles.noteInput}
+              value={noteDraft}
+              onChangeText={setNoteDraft}
+              placeholder="e.g. double batch, eating out, swap sides…"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              autoFocus
+              maxLength={120}
+            />
+            <View style={styles.noteActions}>
+              <Pressable
+                onPress={() => setShowNoteModal(false)}
+                style={({ pressed }) => [styles.noteCancelBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.noteCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveNote}
+                style={({ pressed }) => [styles.noteSaveBtn, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.noteSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Suggest Cheaper Week Modal */}
@@ -1592,5 +1681,75 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8FAF7E',
     fontWeight: '700',
+  },
+  dayNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  dayNoteText: {
+    fontSize: 10,
+    color: '#374151',
+    flex: 1,
+    lineHeight: 14,
+    fontStyle: 'italic',
+  },
+  dayNoteTextEmpty: {
+    color: '#D1D5DB',
+  },
+  noteSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
+    gap: 14,
+  },
+  noteSheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A2B4A',
+  },
+  noteInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#1A2B4A',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  noteActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  noteCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  noteCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  noteSaveBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#1A2B4A',
+    alignItems: 'center',
+  },
+  noteSaveText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

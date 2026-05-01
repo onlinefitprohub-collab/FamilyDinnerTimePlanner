@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable, Modal, FlatList, StyleSheet,
   Alert, Platform, TextInput,
@@ -15,6 +15,7 @@ import { useRecipeDataStore } from '../../src/stores/useRecipeDataStore';
 import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore';
 import { useAllergenCheck } from '../../src/hooks/useAllergenCheck';
 import { useNotesStore } from '../../src/stores/useNotesStore';
+import { useRecentlyViewedStore } from '../../src/stores/useRecentlyViewedStore';
 import { getIngredientById, ingredients as allIngredients } from '../../src/data/ingredients';
 import { getDealsForIngredient } from '../../src/data/deals';
 import { ALLERGEN_LABELS } from '../../src/utils/allergens';
@@ -44,6 +45,11 @@ export default function RecipeDetailScreen() {
   const { conflicts } = useAllergenCheck(id ?? '');
   const { notes, setNote, clearNote } = useNotesStore();
   const [noteText, setNoteText] = useState(notes[id ?? ''] ?? '');
+  const addView = useRecentlyViewedStore((s) => s.addView);
+
+  useEffect(() => {
+    if (id) addView(id);
+  }, [id, addView]);
 
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [dayPickerMode, setDayPickerMode] = useState<'plan' | 'batchcook'>('plan');

@@ -13,14 +13,19 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRecipeLibrary } from '../../../src/hooks/useRecipeLibrary';
 import { useAuthStore } from '../../../src/stores/useAuthStore';
 import { useFavouritesStore } from '../../../src/stores/useFavouritesStore';
 import { useFamilyStore } from '../../../src/stores/useFamilyStore';
+import { usePantryStore } from '../../../src/stores/usePantryStore';
+import { useRecentlyViewedStore } from '../../../src/stores/useRecentlyViewedStore';
 import RecipeCard from '../../../src/components/RecipeCard';
 import { AnyRecipe, FamilyMember, AllergenConflict, Allergen } from '../../../src/types';
 import { isRecipeInSeason, getActiveDealsForRecipe } from '../../../src/utils/seasonal';
 import { checkAllergenConflicts, ALLERGEN_LABELS } from '../../../src/utils/allergens';
+import { scoreRecipeByPantry } from '../../../src/utils/pricing';
+import { ingredients as allIngredients } from '../../../src/data/ingredients';
 
 type SortOption = 'name' | 'time' | 'cost' | 'difficulty' | 'rating';
 type DifficultyOption = 'easy' | 'medium' | 'hard';
@@ -114,6 +119,8 @@ export default function RecipesScreen(): React.ReactElement {
   const toggleFavourite = useFavouritesStore((s) => s.toggleFavourite);
 
   const familyMembers = useFamilyStore((s) => s.members);
+  const pantryItems = usePantryStore((s) => s.items);
+  const recentIds = useRecentlyViewedStore((s) => s.ids);
 
   const [searchText, setSearchText] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
@@ -272,6 +279,38 @@ export default function RecipesScreen(): React.ReactElement {
     return map;
   }, [filteredRecipes, familyMembers]);
 
+  const isFiltered =
+    searchText.trim().length > 0 ||
+    activeFilters.size > 0 ||
+    categoryFilter !== null ||
+    dietaryFilters.size > 0 ||
+    difficultyFilters.size > 0 ||
+    excludedAllergens.size > 0;
+
+  // Recently viewed — resolve IDs to recipes in order
+  const recentRecipes = useMemo(
+    () =>
+      recentIds
+        .map((rid) => recipes.find((r) => r.id === rid))
+        .filter((r): r is AnyRecipe => r !== undefined)
+        .slice(0, 10),
+    [recentIds, recipes],
+  );
+
+  // Recommended — top 8 recipes by pantry coverage (≥50%), safe for family
+  const recommendedRecipes = useMemo(() => {
+    const pantryIds = new Set(
+      pantryItems.filter((p) => p.inStock).map((p) => p.ingredientId),
+    );
+    if (pantryIds.size === 0) return [];
+    return recipes
+      .map((r) => scoreRecipeByPantry(r, allIngredients, pantryIds, familySize))
+      .filter((s) => s.coveragePercent >= 50)
+      .sort((a, b) => b.coveragePercent - a.coveragePercent)
+      .slice(0, 8)
+      .map((s) => s.recipe);
+  }, [recipes, pantryItems, familySize]);
+
   const activeFilterCount =
     (categoryFilter ? 1 : 0) + dietaryFilters.size + difficultyFilters.size + excludedAllergens.size;
 
@@ -310,15 +349,60 @@ export default function RecipesScreen(): React.ReactElement {
                 onPress={() => toggleQuickFilter(qf.id)}
                 style={[styles.quickFilterChip, isActive && styles.quickFilterChipActive]}
               >
-                <Text
-                  style={[styles.quickFilterText, isActive && styles.quickFilterTextActive]}
-                >
+                <Text style={[styles.quickFilterText, isActive && styles.quickFilterTextActive]}>
                   {qf.label}
                 </Text>
               </Pressable>
             );
           })}
         </ScrollView>
+
+        {/* Recently Viewed — only when not filtering */}
+        {!isFiltered && recentRecipes.length > 0 && (
+          <View style={styles.shelfSection}>
+            <Text style={styles.shelfTitle}>Recently Viewed</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfContent}>
+              {recentRecipes.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/recipe/${item.id}`)}
+                  style={({ pressed }) => [styles.shelfCard, pressed && { opacity: 0.82 }]}
+                >
+                  <Image source={{ uri: item.image }} style={styles.shelfImage} contentFit="cover" />
+                  <Text style={styles.shelfName} numberOfLines={2}>{item.name}</Text>
+                  <Text style={styles.shelfMeta}>{item.prepTime + item.cookTime}m</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Recommended — only when not filtering and pantry has items */}
+        {!isFiltered && recommendedRecipes.length > 0 && (
+          <View style={styles.shelfSection}>
+            <View style={styles.shelfTitleRow}>
+              <Text style={styles.shelfTitle}>Good Match for Your Pantry</Text>
+              <Text style={styles.shelfTitleSub}>≥50% ingredients in stock</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfContent}>
+              {recommendedRecipes.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/recipe/${item.id}`)}
+                  style={({ pressed }) => [styles.shelfCard, pressed && { opacity: 0.82 }]}
+                >
+                  <Image source={{ uri: item.image }} style={styles.shelfImage} contentFit="cover" />
+                  <View style={styles.shelfMatchBadge}>
+                    <Ionicons name="leaf-outline" size={10} color="#8FAF7E" />
+                  </View>
+                  <Text style={styles.shelfName} numberOfLines={2}>{item.name}</Text>
+                  <Text style={styles.shelfMeta}>{item.prepTime + item.cookTime}m</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Results count */}
         <View style={styles.resultsMeta}>
           <Text style={styles.resultsCount}>
@@ -339,7 +423,7 @@ export default function RecipesScreen(): React.ReactElement {
         </View>
       </View>
     ),
-    [activeFilters, filteredRecipes.length, sortOption, toggleQuickFilter],
+    [activeFilters, filteredRecipes.length, sortOption, toggleQuickFilter, isFiltered, recentRecipes, recommendedRecipes, router],
   );
 
   const ListEmptyComponent = useMemo(
@@ -822,5 +906,68 @@ const styles = StyleSheet.create({
   allergenChipTextExcluded: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  shelfSection: {
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  shelfTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  shelfTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A2B4A',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  shelfTitleSub: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  shelfContent: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  shelfCard: {
+    width: 110,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+    position: 'relative',
+  },
+  shelfImage: {
+    width: '100%',
+    height: 72,
+  },
+  shelfMatchBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 8,
+    padding: 3,
+  },
+  shelfName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1A2B4A',
+    padding: 7,
+    paddingBottom: 2,
+    lineHeight: 15,
+  },
+  shelfMeta: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    paddingHorizontal: 7,
+    paddingBottom: 8,
   },
 });
