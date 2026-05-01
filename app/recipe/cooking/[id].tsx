@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 import { useRecipeLibrary } from '../../../src/hooks/useRecipeLibrary';
+import { useAuthStore } from '../../../src/stores/useAuthStore';
+import { getIngredientById } from '../../../src/data/ingredients';
 
 function useCountdown(seconds: number) {
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -74,6 +76,9 @@ export default function CookingModeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { getRecipeById } = useRecipeLibrary();
+  const familySize = useAuthStore((s) => s.familySize);
+  const [showPrep, setShowPrep] = useState(true);
+  const [gatheredIds, setGatheredIds] = useState<Set<string>>(new Set());
   const [currentStep, setCurrentStep] = useState(0);
 
   const recipe = getRecipeById(id ?? '');
@@ -101,6 +106,76 @@ export default function CookingModeScreen() {
   const steps = recipe.steps;
   const isFirst = currentStep === 0;
   const isLast = currentStep === steps.length - 1;
+  const scale = familySize / 4;
+
+  // Prep panel — shown before step 1
+  if (showPrep) {
+    const allGathered = gatheredIds.size === recipe.ingredients.length;
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.container}>
+          <View style={styles.topBar}>
+            <Pressable onPress={() => router.back()} style={styles.closeBtn}>
+              <Ionicons name="close" size={24} color="#fff" />
+            </Pressable>
+            <Text style={styles.progressText}>{recipe.name}</Text>
+          </View>
+
+          <Text style={styles.prepTitle}>Gather Your Ingredients</Text>
+          <Text style={styles.prepSubtitle}>
+            Tick each one off before you start · {familySize} {familySize === 1 ? 'person' : 'people'}
+          </Text>
+
+          <ScrollView style={styles.prepList} contentContainerStyle={styles.prepListContent}>
+            {recipe.ingredients.map((ri) => {
+              const ing = getIngredientById(ri.ingredientId);
+              const name = ing?.name ?? ri.ingredientId;
+              const qty = Math.ceil(ri.quantityPer4 * scale);
+              const checked = gatheredIds.has(ri.ingredientId);
+              return (
+                <Pressable
+                  key={ri.ingredientId}
+                  onPress={() =>
+                    setGatheredIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(ri.ingredientId)) next.delete(ri.ingredientId);
+                      else next.add(ri.ingredientId);
+                      return next;
+                    })
+                  }
+                  style={[styles.prepRow, checked && styles.prepRowChecked]}
+                >
+                  <View style={[styles.prepCheck, checked && styles.prepCheckDone]}>
+                    {checked && <Ionicons name="checkmark" size={14} color="#fff" />}
+                  </View>
+                  <Text style={[styles.prepIngredientName, checked && styles.prepIngredientDone]}>
+                    {name}
+                  </Text>
+                  <Text style={styles.prepQty}>{qty} {ri.unit}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.prepFooter}>
+            <Text style={styles.prepCountText}>
+              {gatheredIds.size} / {recipe.ingredients.length} gathered
+            </Text>
+            <Pressable
+              onPress={() => setShowPrep(false)}
+              style={[styles.prepStartBtn, !allGathered && styles.prepStartBtnPartial]}
+            >
+              <Ionicons name="flame-outline" size={20} color={allGathered ? '#1A2B4A' : '#fff'} />
+              <Text style={[styles.prepStartBtnText, !allGathered && styles.prepStartBtnTextPartial]}>
+                {allGathered ? 'Start Cooking' : 'Start Anyway'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </>
+    );
+  }
 
   const handleNext = () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -265,4 +340,35 @@ const styles = StyleSheet.create({
   errorText: { color: '#fff', fontSize: 18, textAlign: 'center', marginTop: 100, marginBottom: 20 },
   backBtn: { backgroundColor: '#E8A020', padding: 14, borderRadius: 10, marginHorizontal: 40, alignItems: 'center' },
   backBtnText: { color: '#fff', fontWeight: '700' },
+  prepTitle: { fontSize: 22, fontWeight: '800', color: '#fff', paddingHorizontal: 24, marginTop: 8 },
+  prepSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.55)', paddingHorizontal: 24, marginTop: 4, marginBottom: 16 },
+  prepList: { flex: 1 },
+  prepListContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 8 },
+  prepRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 13,
+  },
+  prepRowChecked: { backgroundColor: 'rgba(143,175,126,0.18)' },
+  prepCheck: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  prepCheckDone: { backgroundColor: '#8FAF7E', borderColor: '#8FAF7E' },
+  prepIngredientName: { flex: 1, fontSize: 15, fontWeight: '600', color: '#fff' },
+  prepIngredientDone: { color: 'rgba(255,255,255,0.45)', textDecorationLine: 'line-through' },
+  prepQty: { fontSize: 13, color: 'rgba(255,255,255,0.55)' },
+  prepFooter: {
+    paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    paddingTop: 12, gap: 10,
+  },
+  prepCountText: { textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
+  prepStartBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#E8A020', borderRadius: 14, paddingVertical: 16,
+  },
+  prepStartBtnPartial: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  prepStartBtnText: { fontSize: 16, fontWeight: '800', color: '#1A2B4A' },
+  prepStartBtnTextPartial: { color: '#fff' },
 });

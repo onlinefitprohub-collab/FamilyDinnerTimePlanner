@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, Pressable, Modal, FlatList, StyleSheet,
-  Alert, Platform,
+  Alert, Platform, TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Image } from 'expo-image';
@@ -14,6 +14,7 @@ import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useRecipeDataStore } from '../../src/stores/useRecipeDataStore';
 import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore';
 import { useAllergenCheck } from '../../src/hooks/useAllergenCheck';
+import { useNotesStore } from '../../src/stores/useNotesStore';
 import { getIngredientById, ingredients as allIngredients } from '../../src/data/ingredients';
 import { getDealsForIngredient } from '../../src/data/deals';
 import { ALLERGEN_LABELS } from '../../src/utils/allergens';
@@ -41,6 +42,8 @@ export default function RecipeDetailScreen() {
   const addExtraRecipe = useShoppingExtrasStore((s) => s.addExtraRecipe);
   const extraRecipeIds = useShoppingExtrasStore((s) => s.extraRecipeIds);
   const { conflicts } = useAllergenCheck(id ?? '');
+  const { notes, setNote, clearNote } = useNotesStore();
+  const [noteText, setNoteText] = useState(notes[id ?? ''] ?? '');
 
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [dayPickerMode, setDayPickerMode] = useState<'plan' | 'batchcook'>('plan');
@@ -380,6 +383,26 @@ export default function RecipeDetailScreen() {
             </View>
           ))}
 
+          {/* My Notes */}
+          <Text style={styles.sectionHeader}>My Notes</Text>
+          <TextInput
+            style={styles.notesInput}
+            value={noteText}
+            onChangeText={setNoteText}
+            onBlur={() => {
+              const trimmed = noteText.trim();
+              if (trimmed) setNote(recipe.id, trimmed);
+              else clearNote(recipe.id);
+            }}
+            placeholder="Add personal notes, tweaks, or reminders…"
+            placeholderTextColor="#9CA3AF"
+            multiline
+            textAlignVertical="top"
+          />
+          {noteText.trim().length > 0 && (
+            <Text style={styles.notesHint}>Auto-saved when you leave the field</Text>
+          )}
+
           <Pressable style={styles.cookingBtn} onPress={() => router.push(`/recipe/cooking/${recipe.id}`)}>
             <Text style={styles.cookingBtnText}>Start Cooking</Text>
           </Pressable>
@@ -591,6 +614,19 @@ const styles = StyleSheet.create({
   tipBox: { backgroundColor: '#FEF3C7', borderRadius: 6, padding: 8, marginTop: 6 },
   tipText: { fontSize: 13, color: '#92400E' },
   stepDuration: { fontSize: 12, color: '#9CA3AF', marginTop: 4 },
+  notesInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#1A2B4A',
+    minHeight: 88,
+    lineHeight: 21,
+  },
+  notesHint: { fontSize: 11, color: '#9CA3AF', marginTop: -6 },
   cookingBtn: { backgroundColor: '#1A2B4A', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
   cookingBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   stickyBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 12, paddingBottom: Platform.OS === 'ios' ? 28 : 12, borderTopWidth: 1, borderTopColor: '#E5E7EB', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 8 },

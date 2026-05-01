@@ -4,6 +4,8 @@ import {
   Text,
   ScrollView,
   Pressable,
+  TextInput,
+  Modal,
   StyleSheet,
   SafeAreaView,
   Platform,
@@ -13,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
+import { useNutritionTargetsStore } from '../../src/stores/useNutritionTargetsStore';
 import { calculateWeeklyNutrition } from '../../src/utils/nutrition';
 import { WeeklyMealPlan } from '../../src/types';
 
@@ -59,14 +62,29 @@ const DAY_KEYS: Array<keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'>> =
   'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
 ];
 
-// Recommended daily values (per person)
-const DAILY_TARGETS = { calories: 2000, protein: 50, carbs: 260, fat: 70 };
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function NutritionScreen(): React.ReactElement {
   const router = useRouter();
   const [weekKey, setWeekKey] = useState(() => getISOWeekKey(new Date()));
+  const [showTargetModal, setShowTargetModal] = useState(false);
+  const { targets, setTargets } = useNutritionTargetsStore();
+  const [editTargets, setEditTargets] = useState(targets);
+
+  const openTargetModal = () => {
+    setEditTargets(targets);
+    setShowTargetModal(true);
+  };
+
+  const saveTargets = () => {
+    setTargets({
+      calories: Math.max(1, editTargets.calories),
+      protein: Math.max(1, editTargets.protein),
+      carbs: Math.max(1, editTargets.carbs),
+      fat: Math.max(1, editTargets.fat),
+    });
+    setShowTargetModal(false);
+  };
 
   const plans = useMealPlanStore((s) => s.plans);
   const familySize = useAuthStore((s) => s.familySize);
@@ -84,10 +102,10 @@ export default function NutritionScreen(): React.ReactElement {
 
   // Per-person weekly totals for macro bars
   const weeklyTargets = {
-    calories: DAILY_TARGETS.calories * 7 * perPerson,
-    protein: DAILY_TARGETS.protein * 7 * perPerson,
-    carbs: DAILY_TARGETS.carbs * 7 * perPerson,
-    fat: DAILY_TARGETS.fat * 7 * perPerson,
+    calories: targets.calories * 7 * perPerson,
+    protein: targets.protein * 7 * perPerson,
+    carbs: targets.carbs * 7 * perPerson,
+    fat: targets.fat * 7 * perPerson,
   };
 
   const macros = [
@@ -109,6 +127,51 @@ export default function NutritionScreen(): React.ReactElement {
           <Text style={styles.screenTitle}>Nutrition</Text>
           <View style={styles.backBtn} />
         </View>
+
+        {/* Targets edit modal */}
+        <Modal visible={showTargetModal} transparent animationType="fade">
+          <Pressable style={styles.modalOverlay} onPress={() => setShowTargetModal(false)}>
+            <Pressable style={styles.targetsSheet} onPress={() => {}}>
+              <Text style={styles.targetsTitle}>Daily Nutrition Targets</Text>
+              <Text style={styles.targetsSubtitle}>Per person · values used for weekly progress bars</Text>
+              {(
+                [
+                  { key: 'calories', label: 'Calories', unit: 'kcal' },
+                  { key: 'protein',  label: 'Protein',  unit: 'g' },
+                  { key: 'carbs',    label: 'Carbs',    unit: 'g' },
+                  { key: 'fat',      label: 'Fat',      unit: 'g' },
+                ] as const
+              ).map(({ key, label, unit }) => (
+                <View key={key} style={styles.targetRow}>
+                  <Text style={styles.targetLabel}>{label}</Text>
+                  <View style={styles.targetInputWrap}>
+                    <TextInput
+                      style={styles.targetInput}
+                      value={String(editTargets[key])}
+                      onChangeText={(t) => {
+                        const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
+                        if (!isNaN(n)) setEditTargets((prev) => ({ ...prev, [key]: n }));
+                        else if (t === '') setEditTargets((prev) => ({ ...prev, [key]: 0 }));
+                      }}
+                      keyboardType="number-pad"
+                      selectTextOnFocus
+                    />
+                    <Text style={styles.targetUnit}>{unit}</Text>
+                  </View>
+                </View>
+              ))}
+              <Pressable
+                onPress={saveTargets}
+                style={({ pressed }) => [styles.targetsSaveBtn, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.targetsSaveBtnText}>Save Targets</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowTargetModal(false)} style={styles.targetsCancelBtn}>
+                <Text style={styles.targetsCancelText}>Cancel</Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Week navigation */}
@@ -174,8 +237,14 @@ export default function NutritionScreen(): React.ReactElement {
 
               {/* Macro progress bars */}
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>Weekly Macros vs. Target</Text>
-                <Text style={styles.cardSubtitle}>Based on {familySize} people × 7 days</Text>
+                <View style={styles.cardTitleRow}>
+                  <Text style={styles.cardTitle}>Weekly Macros vs. Target</Text>
+                  <Pressable onPress={openTargetModal} hitSlop={8} style={styles.editTargetsBtn}>
+                    <Ionicons name="settings-outline" size={16} color="#6B7280" />
+                    <Text style={styles.editTargetsBtnText}>Edit</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.cardSubtitle}>Based on {familySize} people × 7 days · {targets.calories} kcal/day target</Text>
                 {macros.map((m) => {
                   const pct = m.target > 0 ? Math.min((m.value / m.target) * 100, 100) : 0;
                   const over = m.target > 0 && m.value > m.target;
@@ -304,7 +373,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#1A2B4A' },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  editTargetsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editTargetsBtnText: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
   cardSubtitle: { fontSize: 12, color: '#9CA3AF', marginTop: -8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', paddingHorizontal: 24 },
+  targetsSheet: { backgroundColor: '#fff', borderRadius: 20, padding: 24, gap: 14 },
+  targetsTitle: { fontSize: 18, fontWeight: '800', color: '#1A2B4A' },
+  targetsSubtitle: { fontSize: 12, color: '#9CA3AF', marginTop: -8 },
+  targetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  targetLabel: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  targetInputWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  targetInput: { fontSize: 16, fontWeight: '700', color: '#1A2B4A', minWidth: 56, textAlign: 'right' },
+  targetUnit: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  targetsSaveBtn: { backgroundColor: '#1A2B4A', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  targetsSaveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  targetsCancelBtn: { paddingVertical: 10, alignItems: 'center' },
+  targetsCancelText: { color: '#6B7280', fontWeight: '600', fontSize: 14 },
   barChart: { flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 6 },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
   barValue: { fontSize: 9, color: '#6B7280', textAlign: 'center' },
