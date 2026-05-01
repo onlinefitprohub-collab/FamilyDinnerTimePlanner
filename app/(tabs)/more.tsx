@@ -87,6 +87,11 @@ export default function MoreScreen(): React.ReactElement {
           label: 'Nutrition',
           href: '/nutrition',
         },
+        {
+          icon: 'stats-chart-outline',
+          label: 'Kitchen Stats',
+          href: '/stats',
+        },
       ],
     },
     {

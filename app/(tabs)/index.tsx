@@ -186,12 +186,19 @@ export default function HomeScreen(): React.ReactElement {
           Good {timeOfDay},{' '}
           <Text style={styles.familyName}>{familyName}!</Text>
         </Text>
-        <Text style={styles.subheader}>
-          Planning for <Text style={styles.bold}>{familySize} people</Text>
+        <View style={styles.subheaderRow}>
+          <Text style={styles.subheader}>
+            Planning for <Text style={styles.bold}>{familySize} people</Text>
+          </Text>
           {totalCooksEver > 0 && (
-            <Text> · <Text style={styles.bold}>{totalCooksEver} dinners cooked</Text></Text>
+            <Pressable
+              onPress={() => router.push('/stats' as Parameters<typeof router.push>[0])}
+              style={({ pressed }) => [styles.cookStatPill, pressed && { opacity: 0.75 }]}
+            >
+              <Text style={styles.cookStatText}>🍳 {totalCooksEver} cooked</Text>
+            </Pressable>
           )}
-        </Text>
+        </View>
       </View>
 
       {/* Tonight's Dinner */}
@@ -515,10 +522,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#E8A020',
   },
+  subheaderRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
   subheader: {
-    marginTop: 4,
     fontSize: 15,
     color: 'rgba(255,255,255,0.8)',
+  },
+  cookStatPill: {
+    backgroundColor: 'rgba(232,160,32,0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(232,160,32,0.4)',
+  },
+  cookStatText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E8A020',
   },
   bold: {
     fontWeight: '700',
