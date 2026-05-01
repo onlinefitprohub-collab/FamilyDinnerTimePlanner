@@ -16,6 +16,7 @@ import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore'
 import { useAllergenCheck } from '../../src/hooks/useAllergenCheck';
 import { useNotesStore } from '../../src/stores/useNotesStore';
 import { useRecentlyViewedStore } from '../../src/stores/useRecentlyViewedStore';
+import { useCookHistoryStore } from '../../src/stores/useCookHistoryStore';
 import { getIngredientById, ingredients as allIngredients } from '../../src/data/ingredients';
 import { getDealsForIngredient } from '../../src/data/deals';
 import { ALLERGEN_LABELS } from '../../src/utils/allergens';
@@ -46,6 +47,8 @@ export default function RecipeDetailScreen() {
   const { notes, setNote, clearNote } = useNotesStore();
   const [noteText, setNoteText] = useState(notes[id ?? ''] ?? '');
   const addView = useRecentlyViewedStore((s) => s.addView);
+  const cookCount = useCookHistoryStore((s) => s.getCount(id ?? ''));
+  const lastCooked = useCookHistoryStore((s) => s.getLastCooked(id ?? ''));
 
   useEffect(() => {
     if (id) addView(id);
@@ -212,6 +215,19 @@ export default function RecipeDetailScreen() {
               <View style={styles.freezerBadge}><Text>❄️ Freezer-friendly</Text></View>
             )}
           </View>
+
+          {/* Cook history */}
+          {cookCount > 0 && (
+            <View style={styles.cookCountRow}>
+              <Ionicons name="flame" size={13} color="#E8A020" />
+              <Text style={styles.cookCountText}>
+                Cooked {cookCount} time{cookCount !== 1 ? 's' : ''}
+                {lastCooked
+                  ? ` · last ${new Date(lastCooked).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                  : ''}
+              </Text>
+            </View>
+          )}
 
           {/* Dietary */}
           <View style={styles.dietRow}>
@@ -669,4 +685,15 @@ const styles = StyleSheet.create({
   relatedInfo: { padding: 8, gap: 4 },
   relatedName: { fontSize: 12, fontWeight: '700', color: '#1A2B4A', lineHeight: 16 },
   relatedMeta: { fontSize: 11, color: '#9CA3AF' },
+  cookCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 8,
+  },
+  cookCountText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
 });

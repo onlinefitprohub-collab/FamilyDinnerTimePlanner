@@ -7,11 +7,14 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useFavouritesStore } from '../../src/stores/useFavouritesStore';
+import { useCookHistoryStore } from '../../src/stores/useCookHistoryStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { getActiveDeals } from '../../src/data/deals';
 import { getSeasonalIngredients } from '../../src/data/seasonal';
@@ -79,6 +82,24 @@ export default function HomeScreen(): React.ReactElement {
   const budgetProgress = weeklyBudget > 0 ? Math.min(weekTotalCost / weeklyBudget, 1) : 0;
   const budgetBarColour =
     budgetProgress > 0.9 ? '#C0392B' : budgetProgress > 0.7 ? '#E8A020' : '#8FAF7E';
+
+  const totalCooksEver = useCookHistoryStore((s) => s.totalCooks());
+
+  // Detect today's day key (0=Sun … 6=Sat → map to DAYS keys)
+  const todayDayKey = useMemo<keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'> | null>(() => {
+    const jsDay = today.getDay(); // 0=Sun
+    const map: (keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'>)[] = [
+      'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+    ];
+    return map[jsDay] ?? null;
+  }, [today]);
+
+  const tonightRecipe = useMemo<AnyRecipe | null>(() => {
+    if (!todayDayKey || !currentPlan) return null;
+    const recipeId = currentPlan[todayDayKey];
+    if (!recipeId) return null;
+    return recipes.find((r) => r.id === recipeId) ?? null;
+  }, [todayDayKey, currentPlan, recipes]);
 
   const topRatedRecipes = useMemo(() => {
     return [...recipes]
@@ -167,8 +188,61 @@ export default function HomeScreen(): React.ReactElement {
         </Text>
         <Text style={styles.subheader}>
           Planning for <Text style={styles.bold}>{familySize} people</Text>
+          {totalCooksEver > 0 && (
+            <Text> · <Text style={styles.bold}>{totalCooksEver} dinners cooked</Text></Text>
+          )}
         </Text>
       </View>
+
+      {/* Tonight's Dinner */}
+      {tonightRecipe ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tonight's Dinner</Text>
+          <Pressable
+            onPress={() => router.push(`/recipe/${tonightRecipe.id}` as Parameters<typeof router.push>[0])}
+            style={({ pressed }) => [styles.tonightCard, pressed && { opacity: 0.92 }]}
+          >
+            <Image
+              source={{ uri: tonightRecipe.image }}
+              style={styles.tonightImage}
+              contentFit="cover"
+              transition={200}
+            />
+            <View style={styles.tonightOverlay}>
+              <View style={styles.tonightInfo}>
+                <Text style={styles.tonightName} numberOfLines={2}>{tonightRecipe.name}</Text>
+                <Text style={styles.tonightMeta}>
+                  {tonightRecipe.prepTime + tonightRecipe.cookTime} mins ·{' '}
+                  £{familySize > 0
+                    ? (calculateRecipeCost(tonightRecipe, allIngredients, familySize) / familySize).toFixed(2)
+                    : '—'}pp
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => router.push(`/recipe/cooking/${tonightRecipe.id}` as Parameters<typeof router.push>[0])}
+                style={({ pressed }) => [styles.tonightCookBtn, pressed && { opacity: 0.85 }]}
+              >
+                <Ionicons name="flame-outline" size={16} color="#1A2B4A" />
+                <Text style={styles.tonightCookBtnText}>Cook</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => router.push('/(tabs)/planner' as Parameters<typeof router.push>[0])}
+            style={({ pressed }) => [styles.noTonightCard, pressed && { opacity: 0.8 }]}
+          >
+            <Text style={styles.noTonightIcon}>🍽️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.noTonightTitle}>No dinner planned tonight</Text>
+              <Text style={styles.noTonightSub}>Tap to add a meal for today</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </Pressable>
+        </View>
+      )}
 
       {/* 2. This Week Mini Meal-Plan Strip */}
       <View style={styles.section}>
@@ -799,5 +873,80 @@ const styles = StyleSheet.create({
     width: 1,
     height: 36,
     backgroundColor: '#E5E7EB',
+  },
+  tonightCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    height: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tonightImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  tonightOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(26,43,74,0.55)',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: 16,
+    gap: 12,
+  },
+  tonightInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  tonightName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 26,
+  },
+  tonightMeta: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+  },
+  tonightCookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#E8A020',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  tonightCookBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1A2B4A',
+  },
+  noTonightCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  noTonightIcon: {
+    fontSize: 28,
+  },
+  noTonightTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A2B4A',
+  },
+  noTonightSub: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
   },
 });

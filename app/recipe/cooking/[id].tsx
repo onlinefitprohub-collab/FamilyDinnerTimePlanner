@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, ScrollView } from 'react-native';
+import { View, Text, Pressable, Modal, StyleSheet, Platform, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 import { useRecipeLibrary } from '../../../src/hooks/useRecipeLibrary';
 import { useAuthStore } from '../../../src/stores/useAuthStore';
+import { useCookHistoryStore } from '../../../src/stores/useCookHistoryStore';
+import { useFavouritesStore } from '../../../src/stores/useFavouritesStore';
 import { getIngredientById } from '../../../src/data/ingredients';
 
 function useCountdown(seconds: number) {
@@ -77,9 +79,14 @@ export default function CookingModeScreen() {
   const router = useRouter();
   const { getRecipeById } = useRecipeLibrary();
   const familySize = useAuthStore((s) => s.familySize);
+  const addCook = useCookHistoryStore((s) => s.addCook);
+  const setRating = useFavouritesStore((s) => s.setRating);
+  const existingRating = useFavouritesStore((s) => s.ratings[id ?? ''] ?? 0);
   const [showPrep, setShowPrep] = useState(true);
   const [gatheredIds, setGatheredIds] = useState<Set<string>>(new Set());
   const [currentStep, setCurrentStep] = useState(0);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [pendingRating, setPendingRating] = useState(0);
 
   const recipe = getRecipeById(id ?? '');
 
@@ -177,9 +184,22 @@ export default function CookingModeScreen() {
     );
   }
 
+  const handleFinish = useCallback(() => {
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (id) addCook(id);
+    setPendingRating(existingRating);
+    setShowRatingModal(true);
+  }, [id, addCook, existingRating]);
+
+  const handleRatingSave = useCallback(() => {
+    if (id && pendingRating > 0) setRating(id, pendingRating);
+    setShowRatingModal(false);
+    router.back();
+  }, [id, pendingRating, setRating, router]);
+
   const handleNext = () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (isLast) { router.back(); return; }
+    if (isLast) { handleFinish(); return; }
     setCurrentStep((s) => s + 1);
   };
 
@@ -300,6 +320,42 @@ export default function CookingModeScreen() {
           </Pressable>
         </View>
       </View>
+
+      {/* Post-cooking rating modal */}
+      <Modal
+        visible={showRatingModal}
+        transparent
+        animationType="slide"
+        onRequestClose={handleRatingSave}
+      >
+        <View style={styles.ratingOverlay}>
+          <View style={styles.ratingSheet}>
+            <Text style={styles.ratingTitle}>How was it?</Text>
+            <Text style={styles.ratingSubtitle}>{recipe.name}</Text>
+            <View style={styles.ratingStarsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable
+                  key={star}
+                  onPress={() => setPendingRating(star)}
+                  hitSlop={8}
+                >
+                  <Text style={[styles.ratingStar, pendingRating >= star && styles.ratingStarFilled]}>
+                    {pendingRating >= star ? '★' : '☆'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              onPress={handleRatingSave}
+              style={({ pressed }) => [styles.ratingDoneBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.ratingDoneBtnText}>
+                {pendingRating > 0 ? 'Save & Done' : 'Skip'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -371,4 +427,53 @@ const styles = StyleSheet.create({
   prepStartBtnPartial: { backgroundColor: 'rgba(255,255,255,0.15)' },
   prepStartBtnText: { fontSize: 16, fontWeight: '800', color: '#1A2B4A' },
   prepStartBtnTextPartial: { color: '#fff' },
+  ratingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  ratingSheet: {
+    backgroundColor: '#1A2B4A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: Platform.OS === 'ios' ? 48 : 28,
+    alignItems: 'center',
+    gap: 14,
+  },
+  ratingTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  ratingSubtitle: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.6)',
+    textAlign: 'center',
+  },
+  ratingStarsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginVertical: 8,
+  },
+  ratingStar: {
+    fontSize: 44,
+    color: 'rgba(255,255,255,0.25)',
+  },
+  ratingStarFilled: {
+    color: '#E8A020',
+  },
+  ratingDoneBtn: {
+    backgroundColor: '#E8A020',
+    borderRadius: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 48,
+    marginTop: 4,
+  },
+  ratingDoneBtnText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1A2B4A',
+  },
 });
