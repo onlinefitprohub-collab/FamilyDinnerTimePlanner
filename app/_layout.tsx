@@ -1,10 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '../src/hooks/useAuth';
 import { ONBOARDING_KEY } from './onboarding';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+function useNotificationDeepLink() {
+  const router = useRouter();
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+
+  useEffect(() => {
+    // Handle taps on notifications that arrive while app is backgrounded/closed
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data as
+          | { route?: string; params?: Record<string, string> }
+          | undefined;
+        if (!data?.route) return;
+
+        const route = data.params
+          ? `${data.route}?${new URLSearchParams(data.params).toString()}`
+          : data.route;
+
+        // Small delay to let the navigator mount
+        setTimeout(() => {
+          router.push(route as Parameters<typeof router.push>[0]);
+        }, 300);
+      },
+    );
+
+    return () => {
+      responseListener.current?.remove();
+    };
+  }, [router]);
+}
 
 function AuthGate({ children }: { children: React.ReactNode }): React.ReactElement {
   const { session, isLoading } = useAuth();
@@ -12,6 +51,8 @@ function AuthGate({ children }: { children: React.ReactNode }): React.ReactEleme
   const segments = useSegments();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
+
+  useNotificationDeepLink();
 
   // Load onboarding flag once
   useEffect(() => {

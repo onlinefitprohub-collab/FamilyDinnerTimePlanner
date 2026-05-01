@@ -46,6 +46,7 @@ async function rescheduleAll(
       content: {
         title: 'Time to plan your meals! 🍽️',
         body: "You haven't set your meal plan for next week yet. Tap to start planning!",
+        data: { route: '/(tabs)/planner' },
       },
       trigger: { weekday: 1, hour: 19, minute: 0, repeats: true } as Notifications.WeeklyTriggerInput,
     });
@@ -62,17 +63,18 @@ async function rescheduleAll(
           content: {
             title: '❄️ Freezer item nearing 3 months',
             body: `"${item.label}" has been frozen ${days} days — use it before it goes off!`,
+            data: { route: '/pantry', params: { tab: 'freezer' } },
           },
           trigger: null,
         });
       }
     }
 
-    // Weekly Wednesday morning reminder to check the freezer
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '❄️ Weekly Freezer Check',
         body: 'Check your freezer for items approaching 3 months old.',
+        data: { route: '/pantry', params: { tab: 'freezer' } },
       },
       trigger: { weekday: 4, hour: 9, minute: 0, repeats: true } as Notifications.WeeklyTriggerInput,
     });
@@ -100,17 +102,18 @@ async function rescheduleAll(
           content: {
             title: '💰 Budget Alert',
             body: `You've used ${Math.round(pct * 100)}% of your £${weeklyBudget.toFixed(2)} weekly budget!`,
+            data: { route: '/budget' },
           },
           trigger: null,
         });
       }
     }
 
-    // Sunday evening budget summary
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '💰 Weekly Budget Summary',
         body: 'Check how your dinner spend compared to your budget this week.',
+        data: { route: '/budget' },
       },
       trigger: { weekday: 1, hour: 18, minute: 0, repeats: true } as Notifications.WeeklyTriggerInput,
     });

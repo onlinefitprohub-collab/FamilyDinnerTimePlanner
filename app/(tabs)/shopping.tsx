@@ -17,6 +17,7 @@ import { useAuthStore } from '../../src/stores/useAuthStore';
 import { usePantryStore } from '../../src/stores/usePantryStore';
 import { useFreezerStore } from '../../src/stores/useFreezerStore';
 import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore';
+import { useShoppingCheckedStore } from '../../src/stores/useShoppingCheckedStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { buildShoppingList } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
@@ -54,13 +55,17 @@ interface SectionData {
 export default function ShoppingScreen(): React.ReactElement {
   const [pantryDeduction, setPantryDeduction] = useState(false);
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [manualItem, setManualItem] = useState('');
   const [manualItems, setManualItems] = useState<ShoppingListItem[]>([]);
   const [showScanModal, setShowScanModal] = useState(false);
 
   const plans = useMealPlanStore((s) => s.plans);
   const currentWeekKey = useMealPlanStore((s) => s.currentWeekKey);
+
+  const toggleCheckedPersist = useShoppingCheckedStore((s) => s.toggle);
+  const clearCheckedForWeek = useShoppingCheckedStore((s) => s.clearForWeek);
+  const getChecked = useShoppingCheckedStore((s) => s.getChecked);
+  const checkedItems = getChecked(currentWeekKey);
   const familySize = useAuthStore((s) => s.familySize);
   const pantryItems = usePantryStore((s) => s.items);
   const freezerItems = useFreezerStore((s) => s.items);
@@ -164,16 +169,8 @@ export default function ShoppingScreen(): React.ReactElement {
   }, [shoppingList, groupBy]);
 
   const toggleChecked = useCallback((ingredientId: string) => {
-    setCheckedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(ingredientId)) {
-        next.delete(ingredientId);
-      } else {
-        next.add(ingredientId);
-      }
-      return next;
-    });
-  }, []);
+    toggleCheckedPersist(ingredientId, currentWeekKey);
+  }, [toggleCheckedPersist, currentWeekKey]);
 
   const handleAddManual = useCallback(() => {
     const trimmed = manualItem.trim();
@@ -219,11 +216,11 @@ export default function ShoppingScreen(): React.ReactElement {
   }, []);
 
   const handleClearCompleted = useCallback(() => {
-    setCheckedItems(new Set());
+    clearCheckedForWeek(currentWeekKey);
     setManualItems((prev) =>
       prev.filter((item) => !checkedItems.has(item.ingredientId)),
     );
-  }, [checkedItems]);
+  }, [clearCheckedForWeek, currentWeekKey, checkedItems]);
 
   const handleShare = useCallback(async () => {
     const lines: string[] = ['Shopping List\n'];
@@ -250,8 +247,8 @@ export default function ShoppingScreen(): React.ReactElement {
 
   const removeManualItem = useCallback((ingredientId: string) => {
     setManualItems((prev) => prev.filter((i) => i.ingredientId !== ingredientId));
-    setCheckedItems((prev) => { const next = new Set(prev); next.delete(ingredientId); return next; });
-  }, []);
+    clearCheckedForWeek(currentWeekKey);
+  }, [clearCheckedForWeek, currentWeekKey]);
 
   const renderItem = useCallback(
     ({ item }: { item: ShoppingListItem }) => {
