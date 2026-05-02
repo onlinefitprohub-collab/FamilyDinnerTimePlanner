@@ -64,8 +64,13 @@ export default function ShoppingScreen(): React.ReactElement {
 
   const toggleCheckedPersist = useShoppingCheckedStore((s) => s.toggle);
   const clearCheckedForWeek = useShoppingCheckedStore((s) => s.clearForWeek);
-  const getChecked = useShoppingCheckedStore((s) => s.getChecked);
-  const checkedItems = getChecked(currentWeekKey);
+  const uncheck = useShoppingCheckedStore((s) => s.uncheck);
+  const storedCheckedIds = useShoppingCheckedStore((s) => s.checkedIds);
+  const storedWeekKey = useShoppingCheckedStore((s) => s.weekKey);
+  const checkedItems = useMemo(
+    () => storedWeekKey === currentWeekKey ? new Set(storedCheckedIds) : new Set<string>(),
+    [storedCheckedIds, storedWeekKey, currentWeekKey],
+  );
   const familySize = useAuthStore((s) => s.familySize);
   const pantryItems = usePantryStore((s) => s.items);
   const freezerItems = useFreezerStore((s) => s.items);
@@ -247,8 +252,8 @@ export default function ShoppingScreen(): React.ReactElement {
 
   const removeManualItem = useCallback((ingredientId: string) => {
     setManualItems((prev) => prev.filter((i) => i.ingredientId !== ingredientId));
-    clearCheckedForWeek(currentWeekKey);
-  }, [clearCheckedForWeek, currentWeekKey]);
+    uncheck(ingredientId, currentWeekKey);
+  }, [uncheck, currentWeekKey]);
 
   const renderItem = useCallback(
     ({ item }: { item: ShoppingListItem }) => {

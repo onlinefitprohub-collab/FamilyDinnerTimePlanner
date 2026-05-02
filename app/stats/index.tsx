@@ -40,12 +40,11 @@ function formatRelative(iso: string): string {
 export default function StatsScreen(): React.ReactElement {
   const router = useRouter();
   const history = useCookHistoryStore((s) => s.history);
-  const totalCooks = useCookHistoryStore((s) => s.totalCooks());
+  const totalCooks = useCookHistoryStore((s) => Object.values(s.history).reduce((sum, dates) => sum + dates.length, 0));
   const { recipes } = useRecipeLibrary();
   const ratings = useFavouritesStore((s) => s.ratings);
   const familySize = useAuthStore((s) => s.familySize);
 
-  // Top recipes by cook count
   const topRecipes = useMemo<RecipeStat[]>(() => {
     return Object.entries(history)
       .map(([recipeId, dates]) => {
@@ -58,7 +57,6 @@ export default function StatsScreen(): React.ReactElement {
       .slice(0, 10);
   }, [history, recipes]);
 
-  // Longest cooking streak (consecutive days with at least one cook)
   const streak = useMemo<{ current: number; longest: number }>(() => {
     const allDates = new Set<string>();
     for (const dates of Object.values(history)) {
@@ -69,45 +67,35 @@ export default function StatsScreen(): React.ReactElement {
     const sorted = Array.from(allDates).sort().reverse();
     if (sorted.length === 0) return { current: 0, longest: 0 };
 
-    let current = 0;
-    let longest = 0;
-    let run = 0;
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const activeStart = sorted[0] === today || sorted[0] === yesterday;
 
-    // Current streak starting from today or yesterday
-    const startIdx = sorted[0] === today || sorted[0] === yesterday ? 0 : -1;
-    if (startIdx >= 0) {
-      run = 1;
-      for (let i = 1; i < sorted.length; i++) {
-        if (daysBetween(sorted[i - 1], sorted[i]) === 1) {
-          run++;
-        } else {
-          break;
-        }
-      }
-      current = run;
-    }
+    let run = 1;
+    let longest = 0;
+    let firstRunDone = false;
+    let firstRunLen = 1;
 
-    // Longest streak (scan full history)
-    run = 1;
     for (let i = 1; i < sorted.length; i++) {
       if (daysBetween(sorted[i - 1], sorted[i]) === 1) {
         run++;
+        if (!firstRunDone) firstRunLen = run;
       } else {
         longest = Math.max(longest, run);
         run = 1;
+        firstRunDone = true;
       }
     }
     longest = Math.max(longest, run);
 
-    return { current, longest };
+    return { current: activeStart ? firstRunLen : 0, longest };
   }, [history]);
 
-  // Unique recipes cooked
-  const uniqueCount = Object.keys(history).filter((id) => history[id].length > 0).length;
+  const uniqueCount = useMemo(
+    () => Object.keys(history).filter((id) => history[id].length > 0).length,
+    [history],
+  );
 
-  // Average rating across cooked recipes
   const avgRating = useMemo<number>(() => {
     const cooked = Object.keys(history).filter((id) => history[id].length > 0);
     const rated = cooked.filter((id) => ratings[id] > 0);
