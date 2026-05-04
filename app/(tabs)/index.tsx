@@ -83,7 +83,7 @@ export default function HomeScreen(): React.ReactElement {
   const budgetBarColour =
     budgetProgress > 0.9 ? '#C0392B' : budgetProgress > 0.7 ? '#E8A020' : '#8FAF7E';
 
-  const totalCooksEver = useCookHistoryStore((s) => s.totalCooks());
+  const totalCooksEver = useCookHistoryStore((s) => Object.values(s.history).reduce((sum, dates) => sum + dates.length, 0));
 
   // Detect today's day key (0=Sun … 6=Sat → map to DAYS keys)
   const todayDayKey = useMemo<keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'> | null>(() => {
