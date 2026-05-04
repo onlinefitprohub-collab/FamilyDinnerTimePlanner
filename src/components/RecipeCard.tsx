@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
 } from 'react-native';
+import { FONTS } from '../theme/typography';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { AnyRecipe, AllergenConflict } from '../types';
@@ -306,12 +307,13 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FONTS.heading,
     color: '#1A2B4A',
     lineHeight: 18,
   },
   description: {
     fontSize: 12,
+    fontFamily: FONTS.body,
     color: '#6B7280',
     lineHeight: 16,
   },

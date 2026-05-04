@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { FONTS } from '../../src/theme/typography';
 import {
   View,
   Text,
@@ -277,17 +278,18 @@ const styles = StyleSheet.create({
   },
   heroNumber: {
     fontSize: 72,
-    fontWeight: '900',
+    fontFamily: FONTS.headingBlack,
     color: '#E8A020',
     lineHeight: 80,
   },
   heroLabel: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: FONTS.heading,
     color: '#FFFFFF',
   },
   heroSub: {
     fontSize: 13,
+    fontFamily: FONTS.body,
     color: 'rgba(255,255,255,0.6)',
     marginTop: 4,
     textAlign: 'center',
@@ -332,7 +334,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: FONTS.heading,
     color: '#1A2B4A',
     marginBottom: 4,
   },

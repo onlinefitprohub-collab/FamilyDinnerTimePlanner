@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { FONTS } from '../../src/theme/typography';
 
 type TabConfig = {
   name: string;
@@ -27,13 +28,18 @@ const TABS: TabConfig[] = [
 const ACTIVE_TINT = '#E8A020';
 const INACTIVE_TINT = '#6B7280';
 
-function WebTopNav(): React.ReactElement {
+function WebSidebar(): React.ReactElement {
   const router = useRouter();
   const pathname = usePathname();
 
   return (
-    <View style={webStyles.container}>
-      <View style={webStyles.inner}>
+    <View style={sidebarStyles.container}>
+      <View style={sidebarStyles.brand}>
+        <Text style={sidebarStyles.brandEmoji}>🍽️</Text>
+        <Text style={sidebarStyles.brandName}>Family{'\n'}Planner</Text>
+      </View>
+
+      <View style={sidebarStyles.nav}>
         {TABS.map((tab) => {
           const isActive =
             tab.name === 'index'
@@ -44,19 +50,19 @@ function WebTopNav(): React.ReactElement {
               key={tab.name}
               onPress={() => router.push(tab.href as Parameters<typeof router.push>[0])}
               style={({ pressed }) => [
-                webStyles.navItem,
-                isActive && webStyles.navItemActive,
-                pressed && webStyles.navItemPressed,
+                sidebarStyles.navItem,
+                isActive && sidebarStyles.navItemActive,
+                pressed && sidebarStyles.navItemPressed,
               ]}
               accessibilityRole="link"
               accessibilityLabel={tab.label}
             >
               <Ionicons
                 name={tab.icon}
-                size={20}
+                size={22}
                 color={isActive ? ACTIVE_TINT : INACTIVE_TINT}
               />
-              <Text style={[webStyles.navLabel, isActive && webStyles.navLabelActive]}>
+              <Text style={[sidebarStyles.navLabel, isActive && sidebarStyles.navLabelActive]}>
                 {tab.label}
               </Text>
             </Pressable>
@@ -71,7 +77,7 @@ export default function TabLayout(): React.ReactElement {
   if (Platform.OS === 'web') {
     return (
       <View style={styles.webRoot}>
-        <WebTopNav />
+        <WebSidebar />
         <View style={styles.webContent}>
           <Tabs
             screenOptions={{
@@ -127,58 +133,68 @@ const styles = StyleSheet.create({
   },
   tabBarLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontFamily: FONTS.bodySemiBold,
   },
   webRoot: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: 'row',
   },
   webContent: {
     flex: 1,
   },
 });
 
-const webStyles = StyleSheet.create({
+const sidebarStyles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderBottomColor: '#E5E7EB',
-    borderBottomWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    width: 220,
+    backgroundColor: '#1A2B4A',
+    paddingTop: 24,
+    paddingBottom: 32,
   },
-  inner: {
+  brand: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    maxWidth: 1200,
-    alignSelf: 'center',
-    width: '100%',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 12,
+  },
+  brandEmoji: {
+    fontSize: 28,
+  },
+  brandName: {
+    fontSize: 15,
+    fontFamily: FONTS.headingBold,
+    color: '#FFFFFF',
+    lineHeight: 19,
+  },
+  nav: {
+    gap: 2,
+    paddingHorizontal: 12,
   },
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 6,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
   },
   navItemActive: {
-    borderBottomColor: ACTIVE_TINT,
+    backgroundColor: 'rgba(232,160,32,0.18)',
   },
   navItemPressed: {
     opacity: 0.7,
   },
   navLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: INACTIVE_TINT,
+    fontSize: 15,
+    fontFamily: FONTS.bodySemiBold,
+    color: 'rgba(255,255,255,0.65)',
   },
   navLabelActive: {
+    fontFamily: FONTS.bodyBold,
     color: ACTIVE_TINT,
-    fontWeight: '700',
   },
 });

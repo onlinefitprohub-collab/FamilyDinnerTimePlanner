@@ -4,6 +4,17 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { useFonts } from 'expo-font';
+import {
+  Fraunces_700Bold,
+  Fraunces_800ExtraBold,
+  Fraunces_900Black,
+} from '@expo-google-fonts/fraunces';
+import {
+  SourceSans3_400Regular,
+  SourceSans3_600SemiBold,
+  SourceSans3_700Bold,
+} from '@expo-google-fonts/source-sans-3';
 import { useAuth } from '../src/hooks/useAuth';
 import { useDataSync } from '../src/hooks/useDataSync';
 import { ONBOARDING_KEY } from './onboarding';
@@ -95,6 +106,23 @@ function AuthGate({ children }: { children: React.ReactNode }): React.ReactEleme
 }
 
 export default function RootLayout(): React.ReactElement {
+  const [fontsLoaded] = useFonts({
+    Fraunces_700Bold,
+    Fraunces_800ExtraBold,
+    Fraunces_900Black,
+    SourceSans3_400Regular,
+    SourceSans3_600SemiBold,
+    SourceSans3_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#E8A020" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <AuthGate>

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BarChart } from 'react-native-gifted-charts';
+import { FONTS } from '../../src/theme/typography';
 import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
@@ -507,7 +508,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: FONTS.headingBold,
     color: '#1A2B4A',
     marginBottom: 4,
   },
@@ -569,7 +570,7 @@ const styles = StyleSheet.create({
   },
   spendAmount: {
     fontSize: 28,
-    fontWeight: '800',
+    fontFamily: FONTS.headingBold,
     color: '#1A2B4A',
   },
   spendOf: {

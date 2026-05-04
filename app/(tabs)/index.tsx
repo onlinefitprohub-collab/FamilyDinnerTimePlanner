@@ -23,6 +23,7 @@ import { calculateWeeklyNutrition } from '../../src/utils/nutrition';
 import SupermarketChip from '../../src/components/SupermarketChip';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
 import { WeeklyMealPlan, AnyRecipe } from '../../src/types';
+import { FONTS } from '../../src/theme/typography';
 
 const DAYS: Array<{ key: keyof Omit<WeeklyMealPlan, 'id' | 'userId' | 'weekKey'>; label: string }> = [
   { key: 'monday', label: 'Mon' },
@@ -515,11 +516,11 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontSize: 24,
+    fontFamily: FONTS.body,
     color: '#FFFFFF',
-    fontWeight: '400',
   },
   familyName: {
-    fontWeight: '800',
+    fontFamily: FONTS.headingBold,
     color: '#E8A020',
   },
   subheaderRow: {
@@ -556,7 +557,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: FONTS.heading,
     color: '#1A2B4A',
     marginBottom: 10,
   },
