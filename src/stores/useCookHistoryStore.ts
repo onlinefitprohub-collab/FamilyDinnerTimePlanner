@@ -8,7 +8,6 @@ interface CookHistoryStore {
   addCook: (recipeId: string) => void;
   getCount: (recipeId: string) => number;
   getLastCooked: (recipeId: string) => string | null;
-  totalCooks: () => number;
 }
 
 export const useCookHistoryStore = create<CookHistoryStore>()(
@@ -24,8 +23,6 @@ export const useCookHistoryStore = create<CookHistoryStore>()(
         })),
       getCount: (recipeId) => get().history[recipeId]?.length ?? 0,
       getLastCooked: (recipeId) => get().history[recipeId]?.[0] ?? null,
-      totalCooks: () =>
-        Object.values(get().history).reduce((sum, arr) => sum + arr.length, 0),
     }),
     {
       name: 'cook-history-store',

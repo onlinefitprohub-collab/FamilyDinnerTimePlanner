@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../src/hooks/useAuth';
+import { useDataSync } from '../src/hooks/useDataSync';
 import { ONBOARDING_KEY } from './onboarding';
 
 Notifications.setNotificationHandler({
@@ -53,6 +54,7 @@ function AuthGate({ children }: { children: React.ReactNode }): React.ReactEleme
   const [onboardingDone, setOnboardingDone] = useState(false);
 
   useNotificationDeepLink();
+  useDataSync(session?.user?.id ?? null);
 
   // Load onboarding flag once
   useEffect(() => {
