@@ -47,6 +47,7 @@ export const useFreezerStore = create<FreezerState>()(
       },
 
       updateItem: async (id: string, updates: Partial<FreezerItem>) => {
+        const previous = get().items;
         set((state) => ({
           items: state.items.map((i) => (i.id === id ? { ...i, ...updates } : i)),
         }));
@@ -54,6 +55,7 @@ export const useFreezerStore = create<FreezerState>()(
           await updateFreezerItemService(id, updates);
         } catch (error) {
           console.error('[FreezerStore] updateItem error:', error);
+          set({ items: previous });
         }
       },
 

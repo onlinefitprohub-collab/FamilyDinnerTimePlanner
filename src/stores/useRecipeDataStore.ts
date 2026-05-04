@@ -78,11 +78,14 @@ export const useRecipeDataStore = create<RecipeDataState>()(
 
       updateCustomRecipe: async (id: string, updates: Partial<CustomRecipe>) => {
         const previous = get().customRecipes;
+        const existing = previous.find((r) => r.id === id);
+        if (!existing) return;
+        const merged = { ...existing, ...updates };
         set((state) => ({
-          customRecipes: state.customRecipes.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+          customRecipes: state.customRecipes.map((r) => (r.id === id ? merged : r)),
         }));
         try {
-          await updateCustomRecipeService(id, updates);
+          await updateCustomRecipeService(id, merged);
         } catch (error) {
           console.error('[RecipeDataStore] updateCustomRecipe error:', error);
           set({ customRecipes: previous });

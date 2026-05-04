@@ -499,18 +499,12 @@ export async function insertCustomRecipe(recipe: CustomRecipe): Promise<void> {
   }
 }
 
-export async function updateCustomRecipe(id: string, updates: Partial<CustomRecipe>): Promise<void> {
-  const payload: Record<string, unknown> = {
+export async function updateCustomRecipe(id: string, recipe: CustomRecipe): Promise<void> {
+  const { source: _s, createdAt: _c, updatedAt: _u, userId: _uid, id: _id, ...base } = recipe;
+  const { error } = await supabase.from('custom_recipes').update({
+    recipe_data: base,
     updated_at: new Date().toISOString(),
-  };
-
-  // Merge recipe_data fields (all except meta fields)
-  const { source: _s, createdAt: _c, updatedAt: _u, userId: _uid, id: _id, ...dataUpdates } = updates;
-  if (Object.keys(dataUpdates).length > 0) {
-    payload['recipe_data'] = dataUpdates;
-  }
-
-  const { error } = await supabase.from('custom_recipes').update(payload).eq('id', id);
+  }).eq('id', id);
 
   if (error) {
     console.error('[supabaseService] updateCustomRecipe error:', error);
