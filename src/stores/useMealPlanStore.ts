@@ -52,6 +52,7 @@ export const useMealPlanStore = create<MealPlanState>()(
             plans: { ...state.plans, [weekKey]: updated },
           };
         });
+        void get().saveWeek(weekKey);
       },
 
       removeMeal: (weekKey, day) => {
@@ -62,6 +63,7 @@ export const useMealPlanStore = create<MealPlanState>()(
           delete updated[day];
           return { plans: { ...state.plans, [weekKey]: updated as WeeklyMealPlan } };
         });
+        void get().saveWeek(weekKey);
       },
 
       loadWeek: async (weekKey) => {

@@ -24,7 +24,7 @@ import RecipeCard from '../../../src/components/RecipeCard';
 import { AnyRecipe, FamilyMember, AllergenConflict, Allergen } from '../../../src/types';
 import { isRecipeInSeason, getActiveDealsForRecipe } from '../../../src/utils/seasonal';
 import { checkAllergenConflicts, ALLERGEN_LABELS } from '../../../src/utils/allergens';
-import { scoreRecipeByPantry } from '../../../src/utils/pricing';
+import { scoreRecipeByPantry, calculateRecipeCost } from '../../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../../src/data/ingredients';
 
 type SortOption = 'name' | 'time' | 'cost' | 'difficulty' | 'rating';
@@ -255,6 +255,11 @@ export default function RecipesScreen(): React.ReactElement {
         case 'difficulty': {
           const order: Record<'easy' | 'medium' | 'hard', number> = { easy: 0, medium: 1, hard: 2 };
           return order[a.difficulty] - order[b.difficulty];
+        }
+        case 'cost': {
+          const ca = calculateRecipeCost(a, allIngredients, familySize);
+          const cb = calculateRecipeCost(b, allIngredients, familySize);
+          return ca - cb;
         }
         case 'rating': {
           const ra = ratings[a.id] ?? 0;

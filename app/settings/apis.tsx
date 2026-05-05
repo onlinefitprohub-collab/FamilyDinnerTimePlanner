@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { theMealDBService } from '../../src/services/recipeApi';
+import { theMealDBService, SpoonacularService, EdamamService } from '../../src/services/recipeApi';
 
 type Provider = 'themealdb' | 'spoonacular' | 'edamam';
 
@@ -55,7 +55,14 @@ export default function ApisScreen() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const ok = await theMealDBService.testConnection();
+      let ok: boolean;
+      if (provider === 'spoonacular') {
+        ok = await new SpoonacularService().testConnection();
+      } else if (provider === 'edamam') {
+        ok = await new EdamamService().testConnection();
+      } else {
+        ok = await theMealDBService.testConnection();
+      }
       setTestResult(ok ? '✓ Connection successful' : '✗ Connection failed');
     } catch {
       setTestResult('✗ Connection failed');
