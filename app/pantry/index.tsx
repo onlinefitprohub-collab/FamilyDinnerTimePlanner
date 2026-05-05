@@ -40,12 +40,13 @@ const CATEGORY_LABELS: Record<IngredientCategory, string> = {
   bakery: 'Bakery',
   frozen: 'Frozen',
   condiments: 'Condiments & Sauces',
+  'ready-meals': 'Ready Meals',
   other: 'Other',
 };
 
 const CATEGORY_ORDER: IngredientCategory[] = [
   'meat', 'dairy', 'vegetables', 'pasta-rice', 'canned',
-  'spices', 'bakery', 'frozen', 'condiments', 'other',
+  'spices', 'bakery', 'frozen', 'ready-meals', 'condiments', 'other',
 ];
 
 function getDaysInFreezer(frozenAt: string): number {

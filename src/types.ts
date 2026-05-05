@@ -32,6 +32,7 @@ export type IngredientCategory =
   | 'bakery'
   | 'frozen'
   | 'condiments'
+  | 'ready-meals'
   | 'other';
 
 export interface Ingredient {
@@ -56,7 +57,9 @@ export type RecipeCategory =
   | 'pie'
   | 'stir-fry'
   | 'bake'
-  | 'grill';
+  | 'grill'
+  | 'ready-meal'
+  | 'pizza';
 
 export interface RecipeIngredient {
   ingredientId: string;

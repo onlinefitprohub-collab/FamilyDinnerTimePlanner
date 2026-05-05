@@ -83,6 +83,11 @@ const QUICK_FILTERS: QuickFilter[] = [
     test: (r, _month, members) =>
       members.length === 0 || checkAllergenConflicts(r, members).length === 0,
   },
+  {
+    id: 'convenience',
+    label: 'Quick & Convenient',
+    test: (r) => r.tags.includes('convenience'),
+  },
 ];
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -94,7 +99,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 const CATEGORY_OPTIONS = [
-  'pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill',
+  'pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill', 'ready-meal', 'pizza',
 ] as const;
 
 const DIETARY_OPTIONS = [
@@ -522,22 +527,27 @@ export default function RecipesScreen(): React.ReactElement {
                   All
                 </Text>
               </Pressable>
-              {CATEGORY_OPTIONS.map((cat) => (
-                <Pressable
-                  key={cat}
-                  onPress={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
-                  style={[styles.optionChip, categoryFilter === cat && styles.optionChipActive]}
-                >
-                  <Text
-                    style={[
-                      styles.optionChipText,
-                      categoryFilter === cat && styles.optionChipTextActive,
-                    ]}
+              {CATEGORY_OPTIONS.map((cat) => {
+                const label = cat === 'ready-meal' ? 'Ready Meals'
+                  : cat === 'stir-fry' ? 'Stir-fry'
+                  : cat.charAt(0).toUpperCase() + cat.slice(1);
+                return (
+                  <Pressable
+                    key={cat}
+                    onPress={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
+                    style={[styles.optionChip, categoryFilter === cat && styles.optionChipActive]}
                   >
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        categoryFilter === cat && styles.optionChipTextActive,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
             {/* Dietary */}

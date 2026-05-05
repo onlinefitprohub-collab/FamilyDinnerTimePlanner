@@ -44,6 +44,7 @@ const CATEGORY_LABELS: Record<IngredientCategory, string> = {
   bakery: 'Bakery',
   frozen: 'Frozen',
   condiments: 'Condiments & Sauces',
+  'ready-meals': 'Ready Meals',
   other: 'Other',
 };
 
