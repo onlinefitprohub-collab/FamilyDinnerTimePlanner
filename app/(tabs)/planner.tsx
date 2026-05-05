@@ -732,36 +732,41 @@ export default function PlannerScreen(): React.ReactElement {
         )}
 
         {/* Action buttons */}
-        <View style={styles.actionsRow}>
+        <View style={styles.actionsGrid}>
           <Pressable
             onPress={handleSaveTemplate}
             style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
           >
-            <Text style={styles.actionBtnText}>Save</Text>
+            <Ionicons name="bookmark-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.actionBtnText}>Save Template</Text>
           </Pressable>
           <Pressable
             onPress={handleLoadTemplate}
             style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
           >
-            <Text style={styles.actionBtnText}>Load</Text>
+            <Ionicons name="folder-open-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.actionBtnText}>Load Template</Text>
           </Pressable>
           <Pressable
             onPress={() => void handleExportTemplate()}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={({ pressed }) => [styles.actionBtn, styles.actionBtnSecondary, pressed && styles.actionBtnPressed]}
           >
-            <Text style={styles.actionBtnText}>Export</Text>
+            <Ionicons name="share-outline" size={18} color="#1A2B4A" />
+            <Text style={[styles.actionBtnText, styles.actionBtnTextSecondary]}>Export</Text>
           </Pressable>
           <Pressable
             onPress={() => setShowImportModal(true)}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={({ pressed }) => [styles.actionBtn, styles.actionBtnSecondary, pressed && styles.actionBtnPressed]}
           >
-            <Text style={styles.actionBtnText}>Import</Text>
+            <Ionicons name="download-outline" size={18} color="#1A2B4A" />
+            <Text style={[styles.actionBtnText, styles.actionBtnTextSecondary]}>Import</Text>
           </Pressable>
           <Pressable
             onPress={handleCopyLastWeek}
-            style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+            style={({ pressed }) => [styles.actionBtnWide, pressed && styles.actionBtnPressed]}
           >
-            <Text style={styles.actionBtnText}>Copy Last Week</Text>
+            <Ionicons name="copy-outline" size={18} color="#1A2B4A" />
+            <Text style={styles.actionBtnWideText}>Copy Last Week</Text>
           </Pressable>
         </View>
 
@@ -1164,10 +1169,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dayCard: {
-    width: 140,
+    width: 160,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 10,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -1189,7 +1194,7 @@ const styles = StyleSheet.create({
   },
   mealImage: {
     width: '100%',
-    height: 80,
+    height: 90,
     borderRadius: 8,
     backgroundColor: '#E5E7EB',
   },
@@ -1249,9 +1254,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryValue: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#1A2B4A',
+    includeFontPadding: false,
   },
   summaryLabel: {
     fontSize: 11,
@@ -1283,7 +1289,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  actionsRow: {
+  actionsGrid: {
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: 16,
@@ -1292,18 +1298,43 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    minWidth: 100,
-    backgroundColor: '#1A2B4A',
-    borderRadius: 10,
-    paddingVertical: 10,
+    minWidth: '45%',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: '#1A2B4A',
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+  },
+  actionBtnSecondary: {
+    backgroundColor: '#F3F4F6',
   },
   actionBtnPressed: {
     opacity: 0.75,
   },
   actionBtnText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionBtnTextSecondary: {
+    color: '#1A2B4A',
+  },
+  actionBtnWide: {
+    flexBasis: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
+  actionBtnWideText: {
+    color: '#1A2B4A',
+    fontSize: 13,
     fontWeight: '700',
   },
   conflictWarning: {

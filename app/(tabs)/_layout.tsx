@@ -5,6 +5,7 @@ import {
   Pressable,
   Platform,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -74,7 +75,10 @@ function WebSidebar(): React.ReactElement {
 }
 
 export default function TabLayout(): React.ReactElement {
-  if (Platform.OS === 'web') {
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === 'web' && width >= 768;
+
+  if (isDesktopWeb) {
     return (
       <View style={styles.webRoot}>
         <WebSidebar />
