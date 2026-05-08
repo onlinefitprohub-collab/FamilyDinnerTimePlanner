@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView,
-  Switch, Alert, StyleSheet,
+  Switch, Alert, StyleSheet, SafeAreaView,
 } from 'react-native';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import { useAuthStore } from '../../../src/stores/useAuthStore';
 import { CustomRecipe, RecipeCategory, Allergen } from '../../../src/types';
 import { ALLERGEN_LABELS } from '../../../src/utils/allergens';
 
-const CATEGORIES: RecipeCategory[] = ['pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill', 'ready-meal', 'pizza'];
+const CATEGORIES: RecipeCategory[] = ['pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill', 'ready-meal', 'pizza', 'takeaway'];
 
 interface IngredientRow { name: string; quantity: string; unit: string; }
 interface StepRow { instruction: string; duration: string; tip: string; }
@@ -200,8 +200,15 @@ export default function CreateRecipeScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen options={{ title: isEditing ? 'Edit Recipe' : 'Create Recipe' }} />
+    <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.navHeader}>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#1A2B4A" />
+        </Pressable>
+        <Text style={styles.navTitle}>{isEditing ? 'Edit Recipe' : 'Create Recipe'}</Text>
+        <View style={styles.backBtn} />
+      </View>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <SectionHeader title="Basic Info" />
         <Field label="Recipe Name *">
@@ -387,7 +394,7 @@ export default function CreateRecipeScreen() {
           <Text style={styles.saveBtnText}>{isSaving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Recipe'}</Text>
         </Pressable>
       </ScrollView>
-    </>
+    </SafeAreaView>
   );
 }
 
@@ -405,6 +412,10 @@ function Field({ label, children, style }: { label: string; children: React.Reac
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FAFAF8' },
+  navHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12, backgroundColor: '#FAFAF8', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  navTitle: { fontSize: 17, fontWeight: '700', color: '#1A2B4A' },
+  backBtn: { width: 36, alignItems: 'flex-start' },
   container: { flex: 1, backgroundColor: '#FAFAF8' },
   content: { padding: 16, paddingBottom: 40 },
   sectionHeader: { fontSize: 16, fontWeight: '700', color: '#1A2B4A', marginTop: 24, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#E8A020', paddingLeft: 10 },

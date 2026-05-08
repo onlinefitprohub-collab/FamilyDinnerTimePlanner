@@ -59,7 +59,8 @@ export type RecipeCategory =
   | 'bake'
   | 'grill'
   | 'ready-meal'
-  | 'pizza';
+  | 'pizza'
+  | 'takeaway';
 
 export interface RecipeIngredient {
   ingredientId: string;

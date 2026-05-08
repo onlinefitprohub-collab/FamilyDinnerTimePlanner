@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, TextInput, Pressable, FlatList, Modal,
+  View, Text, TextInput, Pressable, FlatList, Modal, SafeAreaView,
   StyleSheet, ActivityIndicator, ScrollView, Alert, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { theMealDBService, ExternalRecipe } from '../../../src/services/recipeApi';
 import { useRecipeDataStore } from '../../../src/stores/useRecipeDataStore';
 import { useAuthStore } from '../../../src/stores/useAuthStore';
@@ -22,6 +22,7 @@ interface MatchedIngredient {
 }
 
 export default function RecipeSearchScreen() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ExternalRecipe[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -172,8 +173,15 @@ export default function RecipeSearchScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen options={{ title: 'Find New Recipes' }} />
+    <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.navHeader}>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#1A2B4A" />
+        </Pressable>
+        <Text style={styles.navTitle}>Find New Recipes</Text>
+        <View style={styles.backBtn} />
+      </View>
       <View style={styles.container}>
         <View style={styles.searchRow}>
           <TextInput
@@ -305,11 +313,15 @@ export default function RecipeSearchScreen() {
           )}
         </KeyboardAvoidingView>
       </Modal>
-    </>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FAFAF8' },
+  navHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12, backgroundColor: '#FAFAF8', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  navTitle: { fontSize: 17, fontWeight: '700', color: '#1A2B4A' },
+  backBtn: { width: 36, alignItems: 'flex-start' },
   container: { flex: 1, backgroundColor: '#FAFAF8' },
   searchRow: { flexDirection: 'row', gap: 8, padding: 16, paddingBottom: 8 },
   searchInput: { flex: 1, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#1A2B4A' },

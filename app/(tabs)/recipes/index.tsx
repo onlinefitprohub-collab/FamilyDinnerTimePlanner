@@ -100,7 +100,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 const CATEGORY_OPTIONS = [
-  'pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill', 'ready-meal', 'pizza',
+  'pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill', 'ready-meal', 'pizza', 'takeaway',
 ] as const;
 
 const DIETARY_OPTIONS = [
@@ -549,6 +549,7 @@ export default function RecipesScreen(): React.ReactElement {
               {CATEGORY_OPTIONS.map((cat) => {
                 const label = cat === 'ready-meal' ? 'Ready Meals'
                   : cat === 'stir-fry' ? 'Stir-fry'
+                  : cat === 'takeaway' ? 'Takeaway'
                   : cat.charAt(0).toUpperCase() + cat.slice(1);
                 return (
                   <Pressable
