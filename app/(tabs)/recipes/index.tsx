@@ -482,6 +482,24 @@ export default function RecipesScreen(): React.ReactElement {
         </View>
       </View>
 
+      {/* Add recipe actions */}
+      <View style={styles.addRow}>
+        <Pressable
+          onPress={() => router.push('/(tabs)/recipes/search' as Parameters<typeof router.push>[0])}
+          style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
+        >
+          <Ionicons name="cloud-download-outline" size={16} color="#1A2B4A" />
+          <Text style={styles.addBtnText}>Import Recipe</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/(tabs)/recipes/create' as Parameters<typeof router.push>[0])}
+          style={({ pressed }) => [styles.addBtn, styles.addBtnPrimary, pressed && styles.addBtnPressed]}
+        >
+          <Ionicons name="add" size={16} color="#FFFFFF" />
+          <Text style={[styles.addBtnText, styles.addBtnTextLight]}>Create Recipe</Text>
+        </Pressable>
+      </View>
+
       {/* Recipe grid */}
       <FlatList
         data={filteredRecipes}
@@ -668,9 +686,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAF8',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 8,
+  },
+  addRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderBottomColor: '#E5E7EB',
     borderBottomWidth: 1,
+    backgroundColor: '#FAFAF8',
+  },
+  addBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+  },
+  addBtnPrimary: {
+    backgroundColor: '#1A2B4A',
+    borderColor: '#1A2B4A',
+  },
+  addBtnPressed: {
+    opacity: 0.75,
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A2B4A',
+  },
+  addBtnTextLight: {
+    color: '#FFFFFF',
   },
   searchRow: {
     flexDirection: 'row',
