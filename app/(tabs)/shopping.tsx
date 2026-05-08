@@ -61,7 +61,8 @@ export default function ShoppingScreen(): React.ReactElement {
   const [showScanModal, setShowScanModal] = useState(false);
 
   const plans = useMealPlanStore((s) => s.plans);
-  const currentWeekKey = useMealPlanStore((s) => s.currentWeekKey);
+  const getCurrentWeekKey = useMealPlanStore((s) => s.getCurrentWeekKey);
+  const currentWeekKey = getCurrentWeekKey();
 
   const toggleCheckedPersist = useShoppingCheckedStore((s) => s.toggle);
   const clearCheckedForWeek = useShoppingCheckedStore((s) => s.clearForWeek);
@@ -153,7 +154,7 @@ export default function ShoppingScreen(): React.ReactElement {
     if (groupBy === 'category') {
       const categoryOrder: IngredientCategory[] = [
         'meat', 'dairy', 'vegetables', 'pasta-rice', 'canned',
-        'spices', 'bakery', 'frozen', 'condiments', 'other',
+        'spices', 'bakery', 'frozen', 'ready-meals', 'condiments', 'other',
       ];
       return categoryOrder
         .map((cat) => ({

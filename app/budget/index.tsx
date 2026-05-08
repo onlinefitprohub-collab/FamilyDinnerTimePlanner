@@ -74,7 +74,8 @@ export default function BudgetScreen(): React.ReactElement {
   const setWeeklyBudget = useBudgetStore((s) => s.setWeeklyBudget);
 
   const plans = useMealPlanStore((s) => s.plans);
-  const currentWeekKey = useMealPlanStore((s) => s.currentWeekKey);
+  const getCurrentWeekKey = useMealPlanStore((s) => s.getCurrentWeekKey);
+  const currentWeekKey = getCurrentWeekKey();
   const setMeal = useMealPlanStore((s) => s.setMeal);
 
   const familySize = useAuthStore((s) => s.familySize);

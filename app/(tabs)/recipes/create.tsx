@@ -11,7 +11,7 @@ import { useAuthStore } from '../../../src/stores/useAuthStore';
 import { CustomRecipe, RecipeCategory, Allergen } from '../../../src/types';
 import { ALLERGEN_LABELS } from '../../../src/utils/allergens';
 
-const CATEGORIES: RecipeCategory[] = ['pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill'];
+const CATEGORIES: RecipeCategory[] = ['pasta', 'roast', 'curry', 'soup', 'pie', 'stir-fry', 'bake', 'grill', 'ready-meal', 'pizza'];
 
 interface IngredientRow { name: string; quantity: string; unit: string; }
 interface StepRow { instruction: string; duration: string; tip: string; }
