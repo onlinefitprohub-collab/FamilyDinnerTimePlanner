@@ -99,6 +99,20 @@ export default function CookingModeScreen() {
   const durationSecs = step?.duration ? step.duration * 60 : 0;
   const timer = useCountdown(durationSecs);
 
+  // All useCallback hooks must be declared before any conditional return
+  const handleFinish = useCallback(() => {
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (id) addCook(id);
+    setPendingRating(existingRating);
+    setShowRatingModal(true);
+  }, [id, addCook, existingRating]);
+
+  const handleRatingSave = useCallback(() => {
+    if (id && pendingRating > 0) setRating(id, pendingRating);
+    setShowRatingModal(false);
+    router.back();
+  }, [id, pendingRating, setRating, router]);
+
   if (!recipe || recipe.steps.length === 0) {
     return (
       <View style={styles.container}>
@@ -183,19 +197,6 @@ export default function CookingModeScreen() {
       </>
     );
   }
-
-  const handleFinish = useCallback(() => {
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (id) addCook(id);
-    setPendingRating(existingRating);
-    setShowRatingModal(true);
-  }, [id, addCook, existingRating]);
-
-  const handleRatingSave = useCallback(() => {
-    if (id && pendingRating > 0) setRating(id, pendingRating);
-    setShowRatingModal(false);
-    router.back();
-  }, [id, pendingRating, setRating, router]);
 
   const handleNext = () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
