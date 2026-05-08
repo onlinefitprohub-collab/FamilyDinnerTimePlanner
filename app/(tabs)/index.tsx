@@ -352,22 +352,22 @@ export default function HomeScreen(): React.ReactElement {
             style={({ pressed }) => [styles.nutritionCard, pressed && styles.rowPressed]}
           >
             <View style={styles.nutritionCardHeader}>
-              <Text style={styles.sectionTitle}>This Week's Nutrition</Text>
+              <Text style={styles.sectionTitle}>This Week's Nutrition{'\n'}<Text style={styles.nutritionPerPerson}>per person</Text></Text>
               <Text style={styles.nutritionSeeAll}>Details ›</Text>
             </View>
             <View style={styles.nutritionStats}>
               <View style={styles.nutritionStat}>
-                <Text style={styles.nutritionStatValue}>{weekNutrition.avgDailyCalories}</Text>
+                <Text style={styles.nutritionStatValue}>{Math.round(weekNutrition.avgDailyCalories / familySize)}</Text>
                 <Text style={styles.nutritionStatLabel}>avg kcal/day</Text>
               </View>
               <View style={styles.nutritionStatDivider} />
               <View style={styles.nutritionStat}>
-                <Text style={styles.nutritionStatValue}>{weekNutrition.totalProtein}g</Text>
+                <Text style={styles.nutritionStatValue}>{Math.round(weekNutrition.totalProtein / familySize)}g</Text>
                 <Text style={styles.nutritionStatLabel}>protein / week</Text>
               </View>
               <View style={styles.nutritionStatDivider} />
               <View style={styles.nutritionStat}>
-                <Text style={styles.nutritionStatValue}>{weekNutrition.totalCarbs}g</Text>
+                <Text style={styles.nutritionStatValue}>{Math.round(weekNutrition.totalCarbs / familySize)}g</Text>
                 <Text style={styles.nutritionStatLabel}>carbs / week</Text>
               </View>
             </View>
@@ -874,6 +874,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#E8A020',
     fontWeight: '700',
+  },
+  nutritionPerPerson: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
   },
   nutritionStats: {
     flexDirection: 'row',
