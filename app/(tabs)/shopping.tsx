@@ -469,7 +469,7 @@ export default function ShoppingScreen(): React.ReactElement {
                   pressed && styles.actionBtnPressed,
                 ]}
               >
-                <Text style={styles.actionBtnText}>Share List</Text>
+                <Text style={[styles.actionBtnText, styles.actionBtnTextLight]}>Share List</Text>
               </Pressable>
               <Pressable
                 onPress={handleClearCompleted}
@@ -760,6 +760,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#1A2B4A',
+  },
+  actionBtnTextLight: {
+    color: '#FFFFFF',
   },
   actionBtnTextDanger: {
     color: '#C0392B',
