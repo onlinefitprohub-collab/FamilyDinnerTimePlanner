@@ -299,6 +299,14 @@ export default function PantryScreen(): React.ReactElement {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Header with back button */}
+      <View style={styles.backHeader}>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#1A2B4A" />
+        </Pressable>
+        <Text style={styles.backHeaderTitle}>Pantry</Text>
+      </View>
+
       {/* Tab selector */}
       <View style={styles.tabRow}>
         <Pressable
@@ -681,6 +689,24 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#FAFAF8',
+  },
+  backHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  backBtn: {
+    padding: 4,
+  },
+  backHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A2B4A',
+    marginLeft: 8,
   },
   tabRow: {
     flexDirection: 'row',
