@@ -7,6 +7,7 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FONTS } from '../../src/theme/typography';
@@ -76,6 +77,7 @@ function WebSidebar(): React.ReactElement {
 
 export default function TabLayout(): React.ReactElement {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = Platform.OS === 'web' && width >= 768;
 
   if (isDesktopWeb) {
@@ -106,7 +108,7 @@ export default function TabLayout(): React.ReactElement {
           headerShown: false,
           tabBarActiveTintColor: ACTIVE_TINT,
           tabBarInactiveTintColor: INACTIVE_TINT,
-          tabBarStyle: styles.tabBar,
+          tabBarStyle: [styles.tabBar, { paddingBottom: insets.bottom || 8, height: 56 + (insets.bottom || 8) }],
           tabBarLabelStyle: styles.tabBarLabel,
           tabBarIcon: ({ color, size }) => (
             <Ionicons

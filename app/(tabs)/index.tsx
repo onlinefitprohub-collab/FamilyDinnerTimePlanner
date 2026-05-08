@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +51,7 @@ function getDayOfYear(date: Date): number {
 }
 
 export default function HomeScreen(): React.ReactElement {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
   const familySize = useAuthStore((s) => s.familySize);
@@ -182,7 +184,7 @@ export default function HomeScreen(): React.ReactElement {
       showsVerticalScrollIndicator={false}
     >
       {/* 1. Welcome Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.welcomeText}>
           Good {timeOfDay},{' '}
           <Text style={styles.familyName}>{familyName}!</Text>
@@ -510,7 +512,6 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#1A2B4A',
-    paddingTop: 56,
     paddingBottom: 24,
     paddingHorizontal: 20,
   },
