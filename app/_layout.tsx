@@ -17,6 +17,7 @@ import {
 } from '@expo-google-fonts/source-sans-3';
 import { useAuth } from '../src/hooks/useAuth';
 import { useDataSync } from '../src/hooks/useDataSync';
+import { useAuthStore } from '../src/stores/useAuthStore';
 import { ONBOARDING_KEY } from './onboarding';
 
 Notifications.setNotificationHandler({
@@ -62,17 +63,21 @@ function AuthGate({ children }: { children: React.ReactNode }): React.ReactEleme
   const router = useRouter();
   const segments = useSegments();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const [onboardingDone, setOnboardingDone] = useState(false);
+
+  // Read from the store — updated reactively by onboarding.tsx when it finishes
+  const onboardingComplete = useAuthStore((s) => s.onboardingComplete);
+  const setOnboardingComplete = useAuthStore((s) => s.setOnboardingComplete);
 
   useNotificationDeepLink();
   useDataSync(session?.user?.id ?? null);
 
-  // Load onboarding flag once
+  // Seed the store from AsyncStorage on mount (source of truth for returning users)
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_KEY).then((v) => {
-      setOnboardingDone(v === 'true');
+      setOnboardingComplete(v === 'true');
       setOnboardingChecked(true);
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -84,15 +89,15 @@ function AuthGate({ children }: { children: React.ReactNode }): React.ReactEleme
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
-      if (onboardingDone) {
+      if (onboardingComplete) {
         router.replace('/(tabs)');
       } else {
         router.replace('/onboarding');
       }
-    } else if (session && !inAuthGroup && !inOnboarding && !onboardingDone) {
+    } else if (session && !inAuthGroup && !inOnboarding && !onboardingComplete) {
       router.replace('/onboarding');
     }
-  }, [session, isLoading, segments, router, onboardingChecked, onboardingDone]);
+  }, [session, isLoading, segments, router, onboardingChecked, onboardingComplete]);
 
   if (isLoading || !onboardingChecked) {
     return (

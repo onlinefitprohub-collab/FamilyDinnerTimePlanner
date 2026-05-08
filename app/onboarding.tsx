@@ -82,9 +82,13 @@ export default function OnboardingScreen(): React.ReactElement {
       if (budgetNum > 0) setWeeklyBudget(budgetNum);
 
       await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      // Update store synchronously BEFORE navigating so AuthGate's routing
+      // effect sees onboardingComplete = true when segments change
+      useAuthStore.getState().setOnboardingComplete(true);
       router.replace('/(tabs)');
     } catch {
       await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      useAuthStore.getState().setOnboardingComplete(true);
       router.replace('/(tabs)');
     } finally {
       setIsSaving(false);

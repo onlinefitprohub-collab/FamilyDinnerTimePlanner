@@ -11,9 +11,11 @@ interface AuthState {
   profile: UserProfile | null;
   familySize: number;
   isLoading: boolean;
+  onboardingComplete: boolean;
   setSession: (session: Session | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   setFamilySize: (size: number) => void;
+  setOnboardingComplete: (v: boolean) => void;
   signOut: () => Promise<void>;
   syncFromSupabase: () => Promise<void>;
 }
@@ -26,6 +28,9 @@ export const useAuthStore = create<AuthState>()(
       profile: null,
       familySize: 4,
       isLoading: false,
+      onboardingComplete: false,
+
+      setOnboardingComplete: (v: boolean) => set({ onboardingComplete: v }),
 
       setSession: (session: Session | null) => {
         set({ session, user: session?.user ?? null });
@@ -99,6 +104,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         profile: state.profile,
         familySize: state.familySize,
+        // onboardingComplete intentionally excluded — sourced from AsyncStorage
       }),
     },
   ),
