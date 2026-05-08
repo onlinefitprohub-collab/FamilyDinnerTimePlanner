@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
+  SafeAreaView,
   Text,
   TextInput,
   Pressable,
@@ -117,7 +117,6 @@ const DIFFICULTY_OPTIONS: { value: DifficultyOption; label: string }[] = [
 ];
 
 export default function RecipesScreen(): React.ReactElement {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { recipes, isLoading } = useRecipeLibrary();
   const familySize = useAuthStore((s) => s.familySize);
@@ -449,9 +448,9 @@ export default function RecipesScreen(): React.ReactElement {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header: search + filters */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.header}>
         <View style={styles.searchRow}>
           <View style={styles.searchInputWrapper}>
             <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
@@ -656,7 +655,7 @@ export default function RecipesScreen(): React.ReactElement {
           </ScrollView>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

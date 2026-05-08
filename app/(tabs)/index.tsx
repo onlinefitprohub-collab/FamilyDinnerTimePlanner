@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import {
   ScrollView,
+  SafeAreaView,
   View,
   Text,
   Pressable,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,7 +51,6 @@ function getDayOfYear(date: Date): number {
 }
 
 export default function HomeScreen(): React.ReactElement {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const profile = useAuthStore((s) => s.profile);
   const familySize = useAuthStore((s) => s.familySize);
@@ -178,17 +177,16 @@ export default function HomeScreen(): React.ReactElement {
   }
 
   return (
+    <SafeAreaView style={styles.safe}>
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
       {/* 1. Welcome Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.welcomeText}>
-          Good {timeOfDay},{' '}
-          <Text style={styles.familyName}>{familyName}!</Text>
-        </Text>
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>Good {timeOfDay},</Text>
+        <Text style={styles.familyName}>{familyName}!</Text>
         <View style={styles.subheaderRow}>
           <Text style={styles.subheader}>
             Planning for <Text style={styles.bold}>{familySize} people</Text>
@@ -493,10 +491,15 @@ export default function HomeScreen(): React.ReactElement {
 
       <View style={styles.bottomSpacer} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#1A2B4A',
+  },
   scroll: {
     flex: 1,
     backgroundColor: '#FAFAF8',
@@ -512,15 +515,17 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#1A2B4A',
+    paddingTop: 16,
     paddingBottom: 24,
     paddingHorizontal: 20,
   },
   welcomeText: {
-    fontSize: 24,
+    fontSize: 16,
     fontFamily: FONTS.body,
-    color: '#FFFFFF',
+    color: 'rgba(255,255,255,0.75)',
   },
   familyName: {
+    fontSize: 26,
     fontFamily: FONTS.headingBold,
     color: '#E8A020',
   },
