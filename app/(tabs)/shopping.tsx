@@ -74,6 +74,7 @@ export default function ShoppingScreen(): React.ReactElement {
     [storedCheckedIds, storedWeekKey, currentWeekKey],
   );
   const familySize = useAuthStore((s) => s.familySize);
+  const preferredSupermarket = useAuthStore((s) => s.preferredSupermarket);
   const pantryItems = usePantryStore((s) => s.items);
   const freezerItems = useFreezerStore((s) => s.items);
   const extraRecipeIds = useShoppingExtrasStore((s) => s.extraRecipeIds);
@@ -141,9 +142,10 @@ export default function ShoppingScreen(): React.ReactElement {
       allIngredients,
       familySize,
       pantryDeduction ? pantryIngredientIds : undefined,
+      preferredSupermarket,
     );
     return [...generated, ...manualItems];
-  }, [allRecipesToShop, familySize, pantryDeduction, pantryIngredientIds, manualItems]);
+  }, [allRecipesToShop, familySize, pantryDeduction, pantryIngredientIds, manualItems, preferredSupermarket]);
 
   const totalCost = useMemo(
     () => shoppingList.reduce((sum, item) => sum + item.cheapestPrice, 0),

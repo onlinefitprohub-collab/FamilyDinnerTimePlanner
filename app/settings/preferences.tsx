@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Switch, ScrollView, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, Switch, ScrollView, StyleSheet, Alert, Platform, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
@@ -8,6 +8,7 @@ import { useBudgetStore } from '../../src/stores/useBudgetStore';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
 import { useAuthStore } from '../../src/stores/useAuthStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
+import { Supermarket } from '../../src/types';
 import { calculateRecipeCost } from '../../src/utils/pricing';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
 import { AnyRecipe, WeeklyMealPlan } from '../../src/types';
@@ -120,11 +121,16 @@ async function rescheduleAll(
   }
 }
 
+const SUPERMARKETS: Supermarket[] = ['Tesco', "Sainsbury's", 'Asda', 'Morrisons', 'Lidl', 'Aldi'];
+
 export default function PreferencesScreen() {
   const [fussyEater, setFussyEater] = useState(false);
   const [weeklyNotif, setWeeklyNotif] = useState(false);
   const [freezerNotif, setFreezerNotif] = useState(false);
   const [budgetNotif, setBudgetNotif] = useState(false);
+
+  const preferredSupermarket = useAuthStore((s) => s.preferredSupermarket);
+  const setPreferredSupermarket = useAuthStore((s) => s.setPreferredSupermarket);
 
   const { recipes: allRecipes } = useRecipeLibrary();
 
@@ -166,6 +172,26 @@ export default function PreferencesScreen() {
     <>
       <Stack.Screen options={{ title: 'Preferences', headerStyle: { backgroundColor: '#FAFAF8' }, headerTitleStyle: { color: '#1A2B4A' } }} />
       <ScrollView style={styles.container}>
+        <Section title="My Supermarket">
+          <View style={styles.supermarketRow}>
+            <Text style={styles.supermarketLabel}>Where do you usually shop? Prices in the shopping list and budget will reflect your chosen store.</Text>
+            <View style={styles.supermarketChips}>
+              {SUPERMARKETS.map((s) => (
+                <Pressable
+                  key={s}
+                  onPress={() => setPreferredSupermarket(preferredSupermarket === s ? null : s)}
+                  style={[styles.supermarketChip, preferredSupermarket === s && styles.supermarketChipActive]}
+                >
+                  <Text style={[styles.supermarketChipText, preferredSupermarket === s && styles.supermarketChipTextActive]}>{s}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {!preferredSupermarket && (
+              <Text style={styles.supermarketHint}>None selected — showing cheapest price across all stores.</Text>
+            )}
+          </View>
+        </Section>
+
         <Section title="Recipe Filtering">
           <Row
             label="Fussy Eater Mode"
@@ -238,4 +264,12 @@ const styles = StyleSheet.create({
   rowLeft: { flex: 1, marginRight: 12 },
   rowLabel: { fontSize: 15, fontWeight: '600', color: '#1A2B4A', marginBottom: 3 },
   rowDesc: { fontSize: 12, color: '#6B7280', lineHeight: 17 },
+  supermarketRow: { padding: 16 },
+  supermarketLabel: { fontSize: 13, color: '#6B7280', lineHeight: 18, marginBottom: 12 },
+  supermarketChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  supermarketChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' },
+  supermarketChipActive: { backgroundColor: '#1A2B4A', borderColor: '#1A2B4A' },
+  supermarketChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  supermarketChipTextActive: { color: '#FFFFFF' },
+  supermarketHint: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' },
 });

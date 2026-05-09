@@ -10,11 +10,13 @@ interface AuthState {
   user: User | null;
   profile: UserProfile | null;
   familySize: number;
+  preferredSupermarket: import('../types').Supermarket | null;
   isLoading: boolean;
   onboardingComplete: boolean;
   setSession: (session: Session | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   setFamilySize: (size: number) => void;
+  setPreferredSupermarket: (s: import('../types').Supermarket | null) => void;
   setOnboardingComplete: (v: boolean) => void;
   signOut: () => Promise<void>;
   syncFromSupabase: () => Promise<void>;
@@ -27,10 +29,12 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       profile: null,
       familySize: 4,
+      preferredSupermarket: null,
       isLoading: false,
       onboardingComplete: false,
 
       setOnboardingComplete: (v: boolean) => set({ onboardingComplete: v }),
+      setPreferredSupermarket: (s) => set({ preferredSupermarket: s }),
 
       setSession: (session: Session | null) => {
         set({ session, user: session?.user ?? null });
@@ -104,6 +108,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         profile: state.profile,
         familySize: state.familySize,
+        preferredSupermarket: state.preferredSupermarket,
         // onboardingComplete intentionally excluded — sourced from AsyncStorage
       }),
     },

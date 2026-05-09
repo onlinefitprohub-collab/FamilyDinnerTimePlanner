@@ -47,6 +47,22 @@ export function calculateRecipeCost(
   return total;
 }
 
+function pickPrice(
+  ingredient: Ingredient,
+  preferred: Supermarket | null,
+): { supermarket: Supermarket; price: number; unitLabel: string } {
+  if (preferred) {
+    const match = ingredient.prices.find((p) => p.supermarket === preferred);
+    if (match) return { supermarket: match.supermarket, price: match.pricePerUnit, unitLabel: match.unitLabel };
+  }
+  // fallback: cheapest
+  let best = ingredient.prices[0];
+  for (const p of ingredient.prices) {
+    if (p.pricePerUnit < best.pricePerUnit) best = p;
+  }
+  return { supermarket: best.supermarket, price: best.pricePerUnit, unitLabel: best.unitLabel };
+}
+
 /**
  * Build a shopping list from a set of week recipes.
  * If pantryIngredientIds is provided, those ingredients are deducted.
@@ -56,6 +72,7 @@ export function buildShoppingList(
   allIngredients: Ingredient[],
   familySize: number,
   pantryIngredientIds?: Set<string>,
+  preferredSupermarket?: Supermarket | null,
 ): ShoppingListItem[] {
   const scale = familySize / 4;
   const ingredientMap = new Map<string, Ingredient>(allIngredients.map((i) => [i.id, i]));
@@ -93,22 +110,8 @@ export function buildShoppingList(
     const ingredient = ingredientMap.get(ingredientId);
     if (!ingredient) continue;
 
-    // Find cheapest supermarket
-    let cheapestSupermarket: Supermarket = ingredient.prices[0]?.supermarket ?? 'Tesco';
-    let cheapestPrice = ingredient.prices[0]?.pricePerUnit ?? 0;
-    let cheapestUnitLabel = ingredient.prices[0]?.unitLabel ?? '';
-
-    for (const p of ingredient.prices) {
-      if (p.pricePerUnit < cheapestPrice) {
-        cheapestPrice = p.pricePerUnit;
-        cheapestSupermarket = p.supermarket;
-        cheapestUnitLabel = p.unitLabel;
-      }
-    }
-
-    // Scale price by how much is needed vs base quantity
-    const scaledPrice =
-      cheapestPrice * (acc.totalQuantity / ingredient.baseQuantityPer4);
+    const picked = pickPrice(ingredient, preferredSupermarket ?? null);
+    const scaledPrice = picked.price * (acc.totalQuantity / ingredient.baseQuantityPer4);
 
     items.push({
       ingredientId,
@@ -116,9 +119,9 @@ export function buildShoppingList(
       totalQuantity: Math.ceil(acc.totalQuantity),
       unit: ingredient.unitType,
       category: ingredient.category as IngredientCategory,
-      cheapestSupermarket,
+      cheapestSupermarket: picked.supermarket,
       cheapestPrice: scaledPrice,
-      unitLabel: cheapestUnitLabel,
+      unitLabel: picked.unitLabel,
       allergens: ingredient.allergens,
       fromRecipes: acc.fromRecipes,
       checked: false,

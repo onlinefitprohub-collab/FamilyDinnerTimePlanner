@@ -244,6 +244,7 @@ export interface UserProfile {
   userId: string;
   familyName: string;
   familySize: number;
+  preferredSupermarket?: Supermarket;
 }
 
 export interface BudgetSettings {
