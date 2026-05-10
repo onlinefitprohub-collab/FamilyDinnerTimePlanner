@@ -1924,7 +1924,7 @@ export const recipes: Recipe[] = [
     image: 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?w=800&auto=format&fit=crop',
     ingredients: [
       { ingredientId: 'chicken-breast-fillets-600g', quantityPer4: 600, unit: 'g' },
-      { ingredientId: 'jar-sauce-korma', quantityPer4: 500, unit: 'g' },
+      { ingredientId: 'jar-sauce-korma', quantityPer4: 1, unit: 'item' },
       { ingredientId: 'onion', quantityPer4: 1, unit: 'item' },
       { ingredientId: 'plain-yoghurt-500g', quantityPer4: 100, unit: 'g' },
       { ingredientId: 'olive-oil-500ml', quantityPer4: 20, unit: 'ml' },
@@ -2437,7 +2437,7 @@ export const recipes: Recipe[] = [
     ingredients: [
       { ingredientId: 'chicken-breast-fillets-600g', quantityPer4: 500, unit: 'g' },
       { ingredientId: 'egg-noodles-300g', quantityPer4: 300, unit: 'g' },
-      { ingredientId: 'jar-sauce-sweet-sour', quantityPer4: 400, unit: 'g' },
+      { ingredientId: 'jar-sauce-sweet-sour', quantityPer4: 1, unit: 'item' },
       { ingredientId: 'cornflour-500g', quantityPer4: 30, unit: 'g' },
       { ingredientId: 'carrot', quantityPer4: 2, unit: 'item' },
       { ingredientId: 'olive-oil-500ml', quantityPer4: 30, unit: 'ml' },

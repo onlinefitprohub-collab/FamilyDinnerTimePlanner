@@ -257,45 +257,47 @@ export default function RecipeDetailScreen() {
             const isPriceExpanded = expandedPrices.has(row.ingredientId);
             return (
               <View key={row.ingredientId} style={styles.ingredientRow}>
-                <View style={styles.ingredientLeft}>
-                  <Text style={styles.ingredientName}>{row.ingredientName}</Text>
-                  <Text style={styles.ingredientQty}>{row.scaledQuantity} {row.unit}</Text>
-                  {row.allergens.length > 0 && (
-                    <View style={styles.allergenDots}>
-                      {row.allergens.slice(0, 3).map((a) => (
-                        <AllergenChip key={a} allergen={a as Allergen} small />
-                      ))}
-                    </View>
-                  )}
-                </View>
-                <View style={styles.ingredientRight}>
-                  {row.inPantry ? (
-                    <Text style={styles.inPantryText}>✓ In Pantry</Text>
-                  ) : (
-                    <>
-                      <SupermarketChip supermarket={row.cheapestSupermarket} price={row.cheapestPrice} small />
-                      {row.onOffer && (
-                        <Text style={styles.dealText}>🏷 {row.dealLabel}</Text>
-                      )}
-                      {row.allPrices.length > 1 && (
-                        <Pressable
-                          onPress={() => {
-                            setExpandedPrices((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(row.ingredientId)) next.delete(row.ingredientId);
-                              else next.add(row.ingredientId);
-                              return next;
-                            });
-                          }}
-                          hitSlop={8}
-                        >
-                          <Text style={styles.allPricesToggle}>
-                            {isPriceExpanded ? '▲ Hide' : '▼ All prices'}
-                          </Text>
-                        </Pressable>
-                      )}
-                    </>
-                  )}
+                <View style={styles.ingredientRowMain}>
+                  <View style={styles.ingredientLeft}>
+                    <Text style={styles.ingredientName}>{row.ingredientName}</Text>
+                    <Text style={styles.ingredientQty}>{row.scaledQuantity} {row.unit}</Text>
+                    {row.allergens.length > 0 && (
+                      <View style={styles.allergenDots}>
+                        {row.allergens.slice(0, 3).map((a) => (
+                          <AllergenChip key={a} allergen={a as Allergen} small />
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.ingredientRight}>
+                    {row.inPantry ? (
+                      <Text style={styles.inPantryText}>✓ In Pantry</Text>
+                    ) : (
+                      <>
+                        <SupermarketChip supermarket={row.cheapestSupermarket} price={row.cheapestPrice} small />
+                        {row.onOffer && (
+                          <Text style={styles.dealText}>🏷 {row.dealLabel}</Text>
+                        )}
+                        {row.allPrices.length > 1 && (
+                          <Pressable
+                            onPress={() => {
+                              setExpandedPrices((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(row.ingredientId)) next.delete(row.ingredientId);
+                                else next.add(row.ingredientId);
+                                return next;
+                              });
+                            }}
+                            hitSlop={8}
+                          >
+                            <Text style={styles.allPricesToggle}>
+                              {isPriceExpanded ? '▲ Hide' : '▼ All prices'}
+                            </Text>
+                          </Pressable>
+                        )}
+                      </>
+                    )}
+                  </View>
                 </View>
                 {isPriceExpanded && !row.inPantry && (
                   <View style={styles.allPricesGrid}>
@@ -588,7 +590,8 @@ const styles = StyleSheet.create({
   conflictTitle: { fontWeight: '700', color: '#92400E', marginBottom: 4 },
   conflictRow: { fontSize: 13, color: '#92400E' },
   sectionHeader: { fontSize: 18, fontWeight: '700', color: '#1A2B4A', marginTop: 24, marginBottom: 12 },
-  ingredientRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  ingredientRow: { flexDirection: 'column', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  ingredientRowMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   ingredientLeft: { flex: 1 },
   ingredientName: { fontSize: 14, color: '#1A2B4A', fontWeight: '600' },
   ingredientQty: { fontSize: 12, color: '#6B7280', marginTop: 2 },
