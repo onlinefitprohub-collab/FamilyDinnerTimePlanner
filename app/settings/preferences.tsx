@@ -172,9 +172,9 @@ export default function PreferencesScreen() {
     <>
       <Stack.Screen options={{ title: 'Preferences', headerStyle: { backgroundColor: '#FAFAF8' }, headerTitleStyle: { color: '#1A2B4A' } }} />
       <ScrollView style={styles.container}>
-        <Section title="My Supermarket">
+        <Section title="Single Store Mode">
           <View style={styles.supermarketRow}>
-            <Text style={styles.supermarketLabel}>Where do you usually shop? Prices in the shopping list and budget will reflect your chosen store.</Text>
+            <Text style={styles.supermarketLabel}>By default, your shopping list shows the cheapest store for each item. Select a store below to plan your entire shop at one place instead.</Text>
             <View style={styles.supermarketChips}>
               {SUPERMARKETS.map((s) => (
                 <Pressable
@@ -187,7 +187,7 @@ export default function PreferencesScreen() {
               ))}
             </View>
             {!preferredSupermarket && (
-              <Text style={styles.supermarketHint}>None selected — showing cheapest price across all stores.</Text>
+              <Text style={styles.supermarketHint}>No store selected — showing cheapest price per item across all stores.</Text>
             )}
           </View>
         </Section>

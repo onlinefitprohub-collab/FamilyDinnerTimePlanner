@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../src/hooks/useAuth';
 import { useDataSync } from '../src/hooks/useDataSync';
 import { useAuthStore } from '../src/stores/useAuthStore';
+import { usePriceStore } from '../src/stores/usePriceStore';
 import { ONBOARDING_KEY } from './onboarding';
 
 Notifications.setNotificationHandler({
@@ -70,6 +71,10 @@ function AuthGate({ children }: { children: React.ReactNode }): React.ReactEleme
 
   useNotificationDeepLink();
   useDataSync(session?.user?.id ?? null);
+
+  useEffect(() => {
+    void usePriceStore.getState().sync();
+  }, []);
 
   // Seed the store from AsyncStorage on mount (source of truth for returning users)
   useEffect(() => {

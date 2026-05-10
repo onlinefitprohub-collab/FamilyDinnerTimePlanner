@@ -10,6 +10,8 @@ import {
   SafeAreaView,
   Alert,
   Share,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMealPlanStore } from '../../src/stores/useMealPlanStore';
@@ -20,6 +22,7 @@ import { useShoppingExtrasStore } from '../../src/stores/useShoppingExtrasStore'
 import { useShoppingCheckedStore } from '../../src/stores/useShoppingCheckedStore';
 import { useRecipeLibrary } from '../../src/hooks/useRecipeLibrary';
 import { buildShoppingList } from '../../src/utils/pricing';
+import { usePriceStore } from '../../src/stores/usePriceStore';
 import { ingredients as allIngredients } from '../../src/data/ingredients';
 import SupermarketChip from '../../src/components/SupermarketChip';
 import AllergenChip from '../../src/components/AllergenChip';
@@ -59,6 +62,9 @@ export default function ShoppingScreen(): React.ReactElement {
   const [manualItem, setManualItem] = useState('');
   const [manualItems, setManualItems] = useState<ShoppingListItem[]>([]);
   const [showScanModal, setShowScanModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ShoppingListItem | null>(null);
+
+  const priceOverrides = usePriceStore((s) => s.getPriceOverrides());
 
   const plans = useMealPlanStore((s) => s.plans);
   const getCurrentWeekKey = useMealPlanStore((s) => s.getCurrentWeekKey);
@@ -143,14 +149,25 @@ export default function ShoppingScreen(): React.ReactElement {
       familySize,
       pantryDeduction ? pantryIngredientIds : undefined,
       preferredSupermarket,
+      priceOverrides,
     );
     return [...generated, ...manualItems];
-  }, [allRecipesToShop, familySize, pantryDeduction, pantryIngredientIds, manualItems, preferredSupermarket]);
+  }, [allRecipesToShop, familySize, pantryDeduction, pantryIngredientIds, manualItems, preferredSupermarket, priceOverrides]);
 
   const totalCost = useMemo(
     () => shoppingList.reduce((sum, item) => sum + item.cheapestPrice, 0),
     [shoppingList],
   );
+
+  const savingsSummary = useMemo<number | null>(() => {
+    if (groupBy !== 'supermarket' || shoppingList.length === 0) return null;
+    const worstCase = shoppingList.reduce((sum, item) => {
+      if (item.allPrices.length === 0) return sum + item.cheapestPrice;
+      return sum + Math.max(...item.allPrices.map((p) => p.price));
+    }, 0);
+    const saving = worstCase - totalCost;
+    return saving > 0.01 ? saving : null;
+  }, [shoppingList, groupBy, totalCost]);
 
   const sections = useMemo<SectionData[]>(() => {
     if (groupBy === 'category') {
@@ -193,6 +210,7 @@ export default function ShoppingScreen(): React.ReactElement {
       cheapestSupermarket: 'Tesco',
       cheapestPrice: 0,
       unitLabel: '',
+      allPrices: [],
       allergens: [],
       fromRecipes: [],
       checked: false,
@@ -216,6 +234,7 @@ export default function ShoppingScreen(): React.ReactElement {
       cheapestSupermarket: 'Tesco',
       cheapestPrice: 0,
       unitLabel: '',
+      allPrices: [],
       allergens: matched?.allergens ?? [],
       fromRecipes: [],
       checked: false,
@@ -293,11 +312,17 @@ export default function ShoppingScreen(): React.ReactElement {
             )}
           </View>
           <View style={styles.itemRight}>
-            <SupermarketChip
-              supermarket={item.cheapestSupermarket}
-              price={item.cheapestPrice > 0 ? item.cheapestPrice : undefined}
-              small
-            />
+            <Pressable
+              onPress={() => item.allPrices.length > 0 ? setSelectedItem(item) : undefined}
+              hitSlop={6}
+              accessibilityLabel={`Compare prices for ${item.ingredientName}`}
+            >
+              <SupermarketChip
+                supermarket={item.cheapestSupermarket}
+                price={item.cheapestPrice > 0 ? item.cheapestPrice : undefined}
+                small
+              />
+            </Pressable>
             {item.isAdHoc && (
               <Pressable
                 onPress={() => removeManualItem(item.ingredientId)}
@@ -399,11 +424,22 @@ export default function ShoppingScreen(): React.ReactElement {
                 groupBy === 'supermarket' && styles.segmentBtnTextActive,
               ]}
             >
-              By Supermarket
+              Smart Shop
             </Text>
           </Pressable>
         </View>
       </View>
+
+      {/* Smart Shop savings banner */}
+      {savingsSummary !== null && (
+        <View style={styles.savingsBanner}>
+          <Text style={styles.savingsBannerText}>
+            Smart shopping saves you{' '}
+            <Text style={styles.savingsBannerAmount}>£{savingsSummary.toFixed(2)}</Text>
+            {' '}vs buying everything at one store
+          </Text>
+        </View>
+      )}
 
       {/* Main list */}
       <SectionList
@@ -412,9 +448,13 @@ export default function ShoppingScreen(): React.ReactElement {
         renderItem={renderItem}
         renderSectionHeader={({ section }) => {
           const sectionTotal = section.data.reduce((sum: number, i: ShoppingListItem) => sum + i.cheapestPrice, 0);
+          const count = section.data.length;
           return (
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>{section.title}</Text>
+              <View>
+                <Text style={styles.sectionHeaderText}>{section.title}</Text>
+                <Text style={styles.sectionHeaderCount}>{count} item{count !== 1 ? 's' : ''}</Text>
+              </View>
               {sectionTotal > 0 && (
                 <Text style={styles.sectionHeaderCost}>£{sectionTotal.toFixed(2)}</Text>
               )}
@@ -495,9 +535,123 @@ export default function ShoppingScreen(): React.ReactElement {
         onClose={() => setShowScanModal(false)}
         onResult={handleScanResult}
       />
+
+      <PriceComparisonModal
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+      />
     </SafeAreaView>
   );
 }
+
+const SUPERMARKET_COLOURS: Record<string, string> = {
+  Tesco: '#EE1C2E',
+  "Sainsbury's": '#FF6B00',
+  Asda: '#78BE20',
+  Morrisons: '#FFD700',
+  Lidl: '#0050AA',
+  Aldi: '#00529B',
+};
+
+function PriceComparisonModal({
+  item,
+  onClose,
+}: {
+  item: ShoppingListItem | null;
+  onClose: () => void;
+}) {
+  if (!item) return null;
+  const cheapest = item.allPrices[0]?.price ?? 0;
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={pcStyles.backdrop} onPress={onClose} />
+      <View style={pcStyles.sheet}>
+        <View style={pcStyles.handle} />
+        <Text style={pcStyles.title}>{item.ingredientName}</Text>
+        <Text style={pcStyles.subtitle}>Price comparison — cheapest first</Text>
+        <ScrollView style={pcStyles.list} showsVerticalScrollIndicator={false}>
+          {item.allPrices.map((p, i) => {
+            const diff = p.price - cheapest;
+            const colour = SUPERMARKET_COLOURS[p.supermarket] ?? '#9CA3AF';
+            return (
+              <View key={p.supermarket} style={[pcStyles.row, i === 0 && pcStyles.rowCheapest]}>
+                <View style={[pcStyles.dot, { backgroundColor: colour }]} />
+                <Text style={pcStyles.store}>{p.supermarket}</Text>
+                <Text style={pcStyles.unitLabel}>{p.unitLabel}</Text>
+                <View style={pcStyles.priceCol}>
+                  <Text style={[pcStyles.price, i === 0 && pcStyles.priceCheapest]}>
+                    £{p.price.toFixed(2)}
+                  </Text>
+                  {i === 0 ? (
+                    <View style={pcStyles.badge}>
+                      <Text style={pcStyles.badgeText}>CHEAPEST</Text>
+                    </View>
+                  ) : (
+                    <Text style={pcStyles.diff}>+£{diff.toFixed(2)}</Text>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+        <Pressable style={pcStyles.closeBtn} onPress={onClose}>
+          <Text style={pcStyles.closeBtnText}>Close</Text>
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
+const pcStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+    maxHeight: '70%',
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  title: { fontSize: 17, fontWeight: '700', color: '#1A2B4A', marginBottom: 2 },
+  subtitle: { fontSize: 12, color: '#9CA3AF', marginBottom: 16 },
+  list: { flexGrow: 0 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 10,
+  },
+  rowCheapest: { backgroundColor: '#F0FBF4', borderRadius: 8 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  store: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1A2B4A' },
+  unitLabel: { fontSize: 12, color: '#9CA3AF', maxWidth: 80 },
+  priceCol: { alignItems: 'flex-end', gap: 2 },
+  price: { fontSize: 15, fontWeight: '700', color: '#1A2B4A' },
+  priceCheapest: { color: '#2E7D32' },
+  badge: { backgroundColor: '#2E7D32', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  badgeText: { fontSize: 9, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.5 },
+  diff: { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
+  closeBtn: {
+    marginTop: 16,
+    backgroundColor: '#1A2B4A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  closeBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+});
 
 const styles = StyleSheet.create({
   safe: {
@@ -616,6 +770,23 @@ const styles = StyleSheet.create({
     color: '#1A2B4A',
     fontWeight: '700',
   },
+  savingsBanner: {
+    backgroundColor: '#F0FBF4',
+    borderBottomWidth: 1,
+    borderBottomColor: '#C8E6C9',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  savingsBannerText: {
+    fontSize: 13,
+    color: '#2E7D32',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  savingsBannerAmount: {
+    fontWeight: '800',
+    fontSize: 14,
+  },
   sectionHeader: {
     backgroundColor: '#F3F4F6',
     paddingHorizontal: 16,
@@ -630,6 +801,11 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  sectionHeaderCount: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 1,
   },
   sectionHeaderCost: {
     fontSize: 12,

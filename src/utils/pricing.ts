@@ -50,17 +50,37 @@ export function calculateRecipeCost(
 function pickPrice(
   ingredient: Ingredient,
   preferred: Supermarket | null,
+  priceOverrides?: Map<string, number>,
 ): { supermarket: Supermarket; price: number; unitLabel: string } {
+  const effectivePrices = ingredient.prices.map((p) => {
+    const key = `${ingredient.id}::${p.supermarket}`;
+    return { ...p, pricePerUnit: priceOverrides?.get(key) ?? p.pricePerUnit };
+  });
+
   if (preferred) {
-    const match = ingredient.prices.find((p) => p.supermarket === preferred);
+    const match = effectivePrices.find((p) => p.supermarket === preferred);
     if (match) return { supermarket: match.supermarket, price: match.pricePerUnit, unitLabel: match.unitLabel };
   }
   // fallback: cheapest
-  let best = ingredient.prices[0];
-  for (const p of ingredient.prices) {
+  let best = effectivePrices[0];
+  for (const p of effectivePrices) {
     if (p.pricePerUnit < best.pricePerUnit) best = p;
   }
   return { supermarket: best.supermarket, price: best.pricePerUnit, unitLabel: best.unitLabel };
+}
+
+function getAllPrices(
+  ingredient: Ingredient,
+  quantityRatio: number,
+  priceOverrides?: Map<string, number>,
+): { supermarket: Supermarket; price: number; unitLabel: string }[] {
+  return ingredient.prices
+    .map((p) => {
+      const key = `${ingredient.id}::${p.supermarket}`;
+      const perUnit = priceOverrides?.get(key) ?? p.pricePerUnit;
+      return { supermarket: p.supermarket, price: perUnit * quantityRatio, unitLabel: p.unitLabel };
+    })
+    .sort((a, b) => a.price - b.price);
 }
 
 /**
@@ -73,6 +93,7 @@ export function buildShoppingList(
   familySize: number,
   pantryIngredientIds?: Set<string>,
   preferredSupermarket?: Supermarket | null,
+  priceOverrides?: Map<string, number>,
 ): ShoppingListItem[] {
   const scale = familySize / 4;
   const ingredientMap = new Map<string, Ingredient>(allIngredients.map((i) => [i.id, i]));
@@ -110,8 +131,9 @@ export function buildShoppingList(
     const ingredient = ingredientMap.get(ingredientId);
     if (!ingredient) continue;
 
-    const picked = pickPrice(ingredient, preferredSupermarket ?? null);
-    const scaledPrice = picked.price * (acc.totalQuantity / ingredient.baseQuantityPer4);
+    const quantityRatio = acc.totalQuantity / ingredient.baseQuantityPer4;
+    const picked = pickPrice(ingredient, preferredSupermarket ?? null, priceOverrides);
+    const scaledPrice = picked.price * quantityRatio;
 
     items.push({
       ingredientId,
@@ -122,6 +144,7 @@ export function buildShoppingList(
       cheapestSupermarket: picked.supermarket,
       cheapestPrice: scaledPrice,
       unitLabel: picked.unitLabel,
+      allPrices: getAllPrices(ingredient, quantityRatio, priceOverrides),
       allergens: ingredient.allergens,
       fromRecipes: acc.fromRecipes,
       checked: false,

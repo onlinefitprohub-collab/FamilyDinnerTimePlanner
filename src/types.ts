@@ -210,6 +210,7 @@ export interface ShoppingListItem {
   cheapestSupermarket: Supermarket;
   cheapestPrice: number;
   unitLabel: string;
+  allPrices: { supermarket: Supermarket; price: number; unitLabel: string }[];
   allergens: Allergen[];
   fromRecipes: string[];
   checked: boolean;
